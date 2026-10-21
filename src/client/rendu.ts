@@ -318,6 +318,8 @@ loader.load({
 .rd-viewport[data-panning=true]{cursor:grabbing}
 .rd-world{position:absolute;left:0;top:0;transform-origin:0 0}
 .rd-edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.rd-flow{fill:none;stroke:var(--dsw-alias-brand-primary);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:1.5 13;animation:rd-flow .85s linear infinite}
+@keyframes rd-flow{to{stroke-dashoffset:-29}}
 .rd-card{position:absolute;width:236px;box-sizing:border-box;padding:10px 12px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);cursor:grab;text-align:left;color:inherit;font:inherit}
 .rd-card[data-selected=true]{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary)}
 .rd-card[data-due=soon]{border-color:var(--dsw-alias-state-warn-primary)}
@@ -358,7 +360,7 @@ loader.load({
 .rd-bar{height:8px;border-radius:99px;overflow:hidden;background:var(--dsw-alias-bg-base)}
 .rd-bar span{display:block;height:100%;background:var(--dsw-alias-brand-primary)}
 .rd-manage-card .rd-actions{margin-top:auto}
-@media(prefers-reduced-motion:reduce){.rd-manage-card{transform:none}}
+@media(prefers-reduced-motion:reduce){.rd-manage-card{transform:none}.rd-flow{animation:none;stroke-dasharray:none}}
 .rd-more{display:inline-flex;margin-top:8px;border:0;background:transparent;color:var(--dsw-alias-brand-primary);font:inherit;font-size:11px;letter-spacing:.04em;padding:2px 0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .rd-field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .rd-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
@@ -474,11 +476,12 @@ loader.load({
           if (seen === epoch.current) setBooting(false)
         }
       }, [])
+      const agentLive = nodes.some((node) => node.sessions.some((link) => link.running))
+      React.useEffect(() => { void refresh() }, [refresh])
       React.useEffect(() => {
-        const timer = window.setInterval(() => { if (!document.hidden) void refresh() }, 2500)
-        void refresh()
+        const timer = window.setInterval(() => { if (!document.hidden) void refresh() }, agentLive ? 1000 : 2500)
         return () => window.clearInterval(timer)
-      }, [refresh])
+      }, [refresh, agentLive])
       React.useEffect(() => {
         if (!projectId) return
         const next = snapshot?.active?.project?.view
@@ -668,7 +671,11 @@ loader.load({
                   const child = byId.get(node.id)
                   if (!parent || !child) return null
                   const hot = node.id === selectedId || parent.id === selectedId
-                  return h('path', { key: node.id, d: edgePath(parent, child), fill: 'none', stroke: hot ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-border-l2)', strokeWidth: hot ? 2 : 1.4 })
+                  const d = edgePath(parent, child)
+                  const flowing = nodeLive(parent) || nodeLive(child)
+                  return h('g', { key: node.id },
+                    h('path', { d, fill: 'none', stroke: hot || flowing ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-border-l2)', strokeWidth: hot || flowing ? 2 : 1.4 }),
+                    flowing ? h('path', { className: 'rd-flow', d }) : null)
                 })),
               nodes.map((node) => h(NodeCard, {
                 key: node.id, node: positioned(node), selected: node.id === selectedId, tr,
@@ -810,6 +817,9 @@ loader.load({
           h('h2', null, tr('evaluation')),
           h('textarea', { className: 'rd-textarea', value: evaluation, placeholder: tr('evaluationPlaceholder'), onChange: (event: Event) => { dirty.current = true; setEvaluation((event.target as HTMLTextAreaElement).value) } }),
           h('div', { className: 'rd-actions' }, h('button', { className: 'rd-button', type: 'button', disabled: props.busy, onClick: () => { dirty.current = false; void props.onSaveEvaluation(evaluation).catch(() => {}) } }, tr('save')))))
+    }
+    function nodeLive(node: NodeView) {
+      return node.sessions.some((link) => link.running)
     }
     function edgePath(parent: NodeView, child: NodeView) {
       const parentCenter = parent.x + 118
@@ -979,7 +989,7 @@ loader.load({
 })
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string
-interface SessionLink { id: string, sessionId: string, label: string, error: string, createdAt: string }
+interface SessionLink { id: string, sessionId: string, label: string, error: string, createdAt: string, running?: boolean }
 interface NodeView {
   id: string
   parentId: string | null

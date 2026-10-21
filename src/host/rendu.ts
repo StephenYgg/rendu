@@ -17,7 +17,7 @@ const PROMPT = [
 
 export function apply(ctx: RenduContext): void {
   const store = RenduStore.open()
-  const service = new RenduService(store)
+  const service = new RenduService(store, () => runningSessionIds(ctx))
   ctx.effect(() => {
     const disposeRoute = ctx.webServer.register({
       kind: 'prefix',
@@ -85,7 +85,7 @@ interface WorkspaceRecord {
 class RenduService {
   private chain: Promise<void> = Promise.resolve()
 
-  constructor(private readonly store: RenduStore) {}
+  constructor(private readonly store: RenduStore, private readonly runningIds: () => Promise<Set<string>>) {}
 
   run<T>(fn: () => Promise<T>): Promise<T> {
     const job = this.chain.then(fn)
@@ -94,7 +94,7 @@ class RenduService {
   }
 
   snapshot() {
-    return this.run(async () => snapshot(this.store.read()))
+    return this.run(async () => this.present())
   }
 
   textBrief(nodeId: string) {
@@ -106,8 +106,19 @@ class RenduService {
       const before = this.store.read()
       const reduced = reduce(before, command, new Date())
       this.store.write(before, reduced.state)
-      return { snapshot: snapshot(reduced.state), result: reduced.result }
+      return { snapshot: await this.present(reduced.state), result: reduced.result }
     })
+  }
+
+  private async present(state?: AtlasState) {
+    const value = snapshot(state ?? this.store.read())
+    const ids = await this.runningIds().catch(() => new Set<string>())
+    for (const node of value.active?.nodes ?? []) {
+      for (const link of node.sessions) {
+        ;(link as { running?: boolean }).running = ids.has(link.sessionId)
+      }
+    }
+    return value
   }
 
   importLegacy(raw: unknown) {
@@ -115,9 +126,9 @@ class RenduService {
       const current = this.store.read()
       if (Object.keys(current.projects).length > 0) throw new Error('已经有项目，不再导入旧数据')
       const imported = normalizeState(raw)
-      if (Object.keys(imported.projects).length === 0) return { snapshot: snapshot(current), result: { imported: 0 } }
+      if (Object.keys(imported.projects).length === 0) return { snapshot: await this.present(current), result: { imported: 0 } }
       this.store.write(emptyState(), imported)
-      return { snapshot: snapshot(imported), result: { imported: Object.keys(imported.projects).length } }
+      return { snapshot: await this.present(imported), result: { imported: Object.keys(imported.projects).length } }
     })
   }
 }
@@ -305,6 +316,11 @@ async function createGroupedSession(ctx: RenduContext, workspaceId: unknown) {
     throw new Error('会话已创建，但没有进入所选分组。分组跟着会话的工作目录走。')
   }
   return { sessionId, label: String(workspace.title || '新会话') }
+}
+
+async function runningSessionIds(ctx: RenduContext): Promise<Set<string>> {
+  const value = await ctx.sessionController.list({}, AbortSignal.timeout(8000))
+  return new Set((value.items ?? []).filter((item) => item.running && item.sessionId).map((item) => String(item.sessionId)))
 }
 
 async function listSessions(ctx: RenduContext) {
