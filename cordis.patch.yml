@@ -1,0 +1,3 @@
+- insert:
+    - id: rendu
+      name: '@local/rendu'

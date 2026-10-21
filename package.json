@@ -1,0 +1,44 @@
+{
+  "name": "@local/rendu",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Rendu breaks a vision into a goal tree for DeepSeek Harness and keeps Agent conversations linked.",
+  "icon": "./rendu.svg",
+  "exports": {
+    ".": "./lib/rendu.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./rendu.svg"
+  },
+  "files": [
+    "lib/**/*.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "rendu.svg",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.host.json && tsc -p tsconfig.client.json && node -e \"require('node:fs').copyFileSync('build/rendu.js','client.js')\"",
+    "typecheck": "tsc -p tsconfig.host.json --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "check": "npm run build && node scripts/check-model.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
+    }
+  }
+}

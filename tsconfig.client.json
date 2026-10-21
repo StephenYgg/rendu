@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "None",
+    "moduleDetection": "legacy",
+    "lib": ["ES2022", "DOM"],
+    "rootDir": "src/client",
+    "outDir": "build",
+    "types": []
+  },
+  "include": ["src/client/**/*.ts"]
+}
