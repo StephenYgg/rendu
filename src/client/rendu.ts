@@ -33,12 +33,13 @@ loader.load({
     const h = React.createElement
     const PANEL = 'rendu'
     const API = '/api/rendu'
-    const STATUSES = ['backlog', 'doing', 'blocked', 'review', 'done', 'dropped']
+    const STATUSES = ['backlog', 'doing', 'blocked', 'review', 'confirm', 'done', 'dropped']
     const COLOR: Record<string, string> = {
       backlog: 'var(--dsw-alias-state-idle-primary)',
       doing: 'var(--dsw-alias-brand-primary)',
       blocked: 'var(--dsw-alias-state-error-primary)',
       review: 'var(--dsw-alias-state-warn-primary)',
+      confirm: 'var(--dsw-alias-state-warn-primary)',
       done: 'var(--dsw-alias-state-success-primary)',
       dropped: 'var(--dsw-alias-label-secondary)',
     }
@@ -61,6 +62,8 @@ loader.load({
       save: '保存',
       saved: '评价已保存',
       addChild: '添加子节点',
+      addLeft: '在左侧添加',
+      addRight: '在右侧添加',
       edit: '编辑',
       delete: '删除',
       deleteProject: '删除项目',
@@ -108,6 +111,8 @@ loader.load({
       verdict_clear: '推进中',
       verdict_risk: '有期限风险',
       verdict_blocked: '有节点受阻',
+      verdict_confirm: '待确认',
+      verdict_confirm_detail: '工作已经做完，还等你确认。',
       verdict_done: '已完成',
       verdict_done_detail: '未放弃的叶子都完成了。',
       verdict_clear_detail: '没有受阻，也没有临期。',
@@ -117,7 +122,10 @@ loader.load({
       status_doing: '进行中',
       status_blocked: '受阻',
       status_review: '待验收',
+      status_confirm: '完成待确认',
       status_done: '完成',
+      confirmDone: '确认完成',
+      confirmHint: '进度到 100% 后停在这里。你确认后才会变成完成；手工改状态可以直接标完成。',
       status_dropped: '放弃',
       level1: '宗旨',
       level2: '目标',
@@ -139,6 +147,7 @@ loader.load({
       groupNone: '不分组',
       groupHint: '只作用于新建会话。选一个侧栏里的分组，新会话就会出现在那一组。',
       noGroups: '还没有分组。可以先在侧栏新建工作区，或选择不分组。',
+      recentBadge: '最近',
       recentProjects: '最近项目',
       viewMore: '查看更多',
       manageTitle: '项目管理',
@@ -179,6 +188,8 @@ loader.load({
       save: 'Save',
       saved: 'Review saved',
       addChild: 'Add child',
+      addLeft: 'Add on the left',
+      addRight: 'Add on the right',
       edit: 'Edit',
       delete: 'Delete',
       deleteProject: 'Delete project',
@@ -226,6 +237,8 @@ loader.load({
       verdict_clear: 'Moving',
       verdict_risk: 'Deadline risk',
       verdict_blocked: 'Blocked',
+      verdict_confirm: 'Awaiting confirmation',
+      verdict_confirm_detail: 'The work is finished and waiting for you.',
       verdict_done: 'Complete',
       verdict_done_detail: 'Every active leaf is complete.',
       verdict_clear_detail: 'Nothing is blocked or close to a deadline.',
@@ -235,7 +248,10 @@ loader.load({
       status_doing: 'In progress',
       status_blocked: 'Blocked',
       status_review: 'In review',
+      status_confirm: 'Done, awaiting confirmation',
       status_done: 'Done',
+      confirmDone: 'Confirm done',
+      confirmHint: '100% stops here. Confirm it to mark done. A manual status change can mark done directly.',
       status_dropped: 'Dropped',
       level1: 'Vision',
       level2: 'Outcome',
@@ -257,6 +273,7 @@ loader.load({
       groupNone: 'Ungrouped',
       groupHint: 'Applies only to a new session. Pick a sidebar group and the session appears there.',
       noGroups: 'No groups yet. Add a workspace in the sidebar, or leave this ungrouped.',
+      recentBadge: 'Recent',
       recentProjects: 'Recent projects',
       viewMore: 'View more',
       manageTitle: 'Projects',
@@ -279,7 +296,7 @@ loader.load({
       updated: 'Updated',
     }
     const CSS = `
-.rd-page{height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit}
+.rd-page{position:relative;height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit}
 .rd-header{display:flex;align-items:center;gap:8px;min-height:56px;padding:8px 14px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
 .rd-mark{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-bg-base);flex:none}
 .rd-title{font-size:15px;font-weight:600;line-height:1.2}
@@ -327,8 +344,21 @@ loader.load({
 .rd-section{margin-top:16px;padding-top:14px;border-top:1px solid var(--dsw-alias-border-l1)}
 .rd-counts{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:8px}
 .rd-count{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--dsw-alias-label-secondary)}
-.rd-alert,.rd-project{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--dsw-alias-border-l1);background:transparent;color:inherit;font:inherit;font-size:12.5px;padding:7px 0;cursor:pointer}
+.rd-alert,.rd-project{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;font-size:13px;padding:8px 6px;cursor:pointer}
+.rd-project:hover{background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base))}
 .rd-project[data-active=true]{color:var(--dsw-alias-brand-primary);font-weight:650}
+.rd-manage-page{flex:1;min-height:0;overflow:auto;padding:28px 32px 56px}
+.rd-manage-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:22px}
+.rd-manage-title{margin:4px 0 8px;font-size:28px;line-height:1.15;font-weight:650;letter-spacing:-.03em}
+.rd-manage-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.rd-manage-card{display:flex;flex-direction:column;gap:8px;border:1px solid var(--dsw-alias-border-l1);border-radius:16px;background:var(--dsw-alias-bg-layer-1);padding:18px;min-height:168px;transition:border-color .16s ease,transform .16s ease,background .16s ease}
+.rd-manage-card:hover{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-layer-1));transform:translateY(-2px)}
+.rd-manage-card h3{margin:0;font-size:18px;line-height:1.35;font-weight:650}
+.rd-badge{align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--dsw-alias-brand-primary);border:1px solid var(--dsw-alias-brand-primary);border-radius:99px;padding:2px 8px}
+.rd-bar{height:8px;border-radius:99px;overflow:hidden;background:var(--dsw-alias-bg-base)}
+.rd-bar span{display:block;height:100%;background:var(--dsw-alias-brand-primary)}
+.rd-manage-card .rd-actions{margin-top:auto}
+@media(prefers-reduced-motion:reduce){.rd-manage-card{transform:none}}
 .rd-more{display:inline-flex;margin-top:8px;border:0;background:transparent;color:var(--dsw-alias-brand-primary);font:inherit;font-size:11px;letter-spacing:.04em;padding:2px 0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .rd-field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .rd-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
@@ -637,13 +667,8 @@ loader.load({
                   const parent = byId.get(node.parentId as string)
                   const child = byId.get(node.id)
                   if (!parent || !child) return null
-                  const x1 = parent.x + 236
-                  const y1 = parent.y + 58
-                  const x2 = child.x
-                  const y2 = child.y + 58
-                  const dx = Math.max(36, (x2 - x1) / 2)
                   const hot = node.id === selectedId || parent.id === selectedId
-                  return h('path', { key: node.id, d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`, fill: 'none', stroke: hot ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-border-l2)', strokeWidth: hot ? 2 : 1.4 })
+                  return h('path', { key: node.id, d: edgePath(parent, child), fill: 'none', stroke: hot ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-border-l2)', strokeWidth: hot ? 2 : 1.4 })
                 })),
               nodes.map((node) => h(NodeCard, {
                 key: node.id, node: positioned(node), selected: node.id === selectedId, tr,
@@ -667,9 +692,10 @@ loader.load({
             onManage: () => setPage('manage'),
             onSelect: (id: string) => { setSelectedId(id); setMenu(null) },
             onEdit: () => selected && setDialog({ type: 'edit', nodeId: selected.id }),
-            onAdd: (parentId: string) => setDialog({ type: 'node', parentId }),
+            onAdd: (parentId: string, side: 'left' | 'right') => setDialog({ type: 'node', parentId, side }),
             onDelete: () => selected && setDialog({ type: 'confirm-node', nodeId: selected.id }),
             onAgent: () => selected && void openAgent(selected.id),
+            onConfirm: () => selected && void command('set_status', { nodeId: selected.id, status: 'done' }).catch(() => {}),
             onUnlink: (linkId: string) => selected && setDialog({ type: 'confirm-unlink', nodeId: selected.id, linkId }),
             onSaveEvaluation: async (evaluation: string) => { await command('update_project', { projectId, evaluation }); setNotice(tr('saved')) },
           })) : null,
@@ -678,7 +704,7 @@ loader.load({
             const node = nodes.find((item) => item.id === menu.nodeId)
             setMenu(null)
             if (!node) return
-            if (action === 'add') setDialog({ type: 'node', parentId: node.id })
+            if (action === 'add-left' || action === 'add-right') setDialog({ type: 'node', parentId: node.id, side: action === 'add-left' ? 'left' : 'right' })
             if (action === 'edit') setDialog({ type: 'edit', nodeId: node.id })
             if (action === 'due') setDialog({ type: 'due', nodeId: node.id, dueAt: node.dueAt || '' })
             if (action === 'agent') void openAgent(node.id)
@@ -736,7 +762,7 @@ loader.load({
       React.useEffect(() => { if (!dirty.current) setEvaluation(active.project.evaluation || '') }, [active.project.evaluation])
       const chain = selected ? ancestorsOf(active.nodes, selected) : []
       const children = selected ? active.nodes.filter((node) => node.parentId === selected.id) : []
-      const detail = overview.verdict === 'done' ? tr('verdict_done_detail') : overview.verdict === 'empty' ? tr('recommended') : [overview.counts.blocked ? tr('blockedCount', { n: overview.counts.blocked }) : '', overview.alerts.length ? tr('alertCount', { n: overview.alerts.length }) : ''].filter(Boolean).join(' · ') || tr('verdict_clear_detail')
+      const detail = overview.verdict === 'done' ? tr('verdict_done_detail') : overview.verdict === 'confirm' ? tr('verdict_confirm_detail') : overview.verdict === 'empty' ? tr('recommended') : [overview.counts.blocked ? tr('blockedCount', { n: overview.counts.blocked }) : '', overview.alerts.length ? tr('alertCount', { n: overview.alerts.length }) : ''].filter(Boolean).join(' · ') || tr('verdict_clear_detail')
       return h('aside', { className: 'rd-aside' },
         h('div', { className: 'rd-kicker' }, tr('recentProjects')),
         recent.map((project) => h('button', {
@@ -772,15 +798,32 @@ loader.load({
                 ' ',
                 h('button', { className: 'rd-link', type: 'button', onClick: () => props.onUnlink(link.id) }, tr('unlink'))))),
             linkError(selected),
+            selected.status === 'confirm' ? h('p', { className: 'rd-muted' }, tr('confirmHint')) : null,
             h('div', { className: 'rd-actions' },
+              selected.status === 'confirm' ? h('button', { className: 'rd-button primary', type: 'button', onClick: props.onConfirm }, tr('confirmDone')) : null,
               h('button', { className: 'rd-button', type: 'button', onClick: props.onEdit }, tr('edit')),
-              h('button', { className: 'rd-button', type: 'button', onClick: () => props.onAdd(selected.id) }, tr('addChild')),
+              h('button', { className: 'rd-button', type: 'button', onClick: () => props.onAdd(selected.id, 'left') }, tr('addLeft')),
+              h('button', { className: 'rd-button', type: 'button', onClick: () => props.onAdd(selected.id, 'right') }, tr('addRight')),
               h('button', { className: 'rd-button primary', type: 'button', onClick: props.onAgent }, tr('assign')),
               selected.parentId ? h('button', { className: 'rd-button danger', type: 'button', onClick: props.onDelete }, tr('delete')) : null)) : h('p', { className: 'rd-muted' }, tr('noSelection'))),
         h('div', { className: 'rd-section' },
           h('h2', null, tr('evaluation')),
           h('textarea', { className: 'rd-textarea', value: evaluation, placeholder: tr('evaluationPlaceholder'), onChange: (event: Event) => { dirty.current = true; setEvaluation((event.target as HTMLTextAreaElement).value) } }),
           h('div', { className: 'rd-actions' }, h('button', { className: 'rd-button', type: 'button', disabled: props.busy, onClick: () => { dirty.current = false; void props.onSaveEvaluation(evaluation).catch(() => {}) } }, tr('save')))))
+    }
+    function edgePath(parent: NodeView, child: NodeView) {
+      const parentCenter = parent.x + 118
+      const childCenter = child.x + 118
+      const parentSide = Math.abs(childCenter - parent.x) < Math.abs(childCenter - (parent.x + 236)) ? 'left' : 'right'
+      const childSide = Math.abs(parentCenter - child.x) <= Math.abs(parentCenter - (child.x + 236)) ? 'left' : 'right'
+      const x1 = parentSide === 'left' ? parent.x : parent.x + 236
+      const x2 = childSide === 'left' ? child.x : child.x + 236
+      const y1 = parent.y + 64
+      const y2 = child.y + 64
+      const dir1 = parentSide === 'left' ? -1 : 1
+      const dir2 = childSide === 'left' ? -1 : 1
+      const bend = Math.max(36, Math.abs(x2 - x1) / 2)
+      return `M ${x1} ${y1} C ${x1 + dir1 * bend} ${y1}, ${x2 + dir2 * bend} ${y2}, ${x2} ${y2}`
     }
     function linkError(node: NodeView) {
       const failed = node.sessions.find((link) => link.error)
@@ -806,26 +849,32 @@ loader.load({
     }
     function ManagePage(props: { tr: Translate, snapshot: Snapshot, busy: boolean, onBack: () => void, onSelect: (id: string) => void, onRename: (id: string, title: string) => void, onDelete: (id: string) => void, onCreate: () => void }) {
       const { tr, snapshot } = props
-      return h('div', { className: 'rd-overlay' },
-        h('div', { className: 'rd-dialog rd-manage', role: 'dialog', 'aria-label': tr('manageTitle') },
-          h('div', { className: 'rd-dialog-head' }, h('h2', null, tr('manageTitle')), h('button', { className: 'rd-button', type: 'button', onClick: props.onBack }, tr('back'))),
-          h('p', { className: 'rd-muted' }, tr('manageHint')),
-          h('div', { className: 'rd-actions' }, h('button', { className: 'rd-button primary', type: 'button', onClick: props.onCreate }, tr('newProject'))),
-          snapshot.projects.map((project, index) => h('div', { key: project.id, className: 'rd-alert' },
-            h('span', null, `${index < 5 ? '' : ''}${project.title}`, h('span', { className: 'rd-muted' }, ` · ${project.progressLabel}`)),
-            h('span', null,
-              h('button', { className: 'rd-link', type: 'button', onClick: () => props.onSelect(project.id) }, tr('select')),
-              ' ',
-              h('button', { className: 'rd-link', type: 'button', onClick: () => props.onRename(project.id, project.title) }, tr('rename')),
-              ' ',
-              h('button', { className: 'rd-link', type: 'button', onClick: () => props.onDelete(project.id) }, tr('delete'))))),
-          snapshot.projects.length > 5 ? h('p', { className: 'rd-muted' }, tr('viewMore')) : null))
+      return h('div', { className: 'rd-manage-page' },
+        h('div', { className: 'rd-manage-head' },
+          h('div', null,
+            h('div', { className: 'rd-kicker' }, tr('nav')),
+            h('h2', { className: 'rd-manage-title' }, tr('manageTitle')),
+            h('p', { className: 'rd-muted' }, tr('manageHint'))),
+          h('div', { className: 'rd-actions' },
+            h('button', { className: 'rd-button', type: 'button', onClick: props.onBack }, tr('back')),
+            h('button', { className: 'rd-button primary', type: 'button', onClick: props.onCreate }, tr('newProject')))),
+        h('div', { className: 'rd-manage-grid' }, snapshot.projects.map((project, index) => h('article', { key: project.id, className: 'rd-manage-card' },
+          index < 5 ? h('span', { className: 'rd-badge' }, tr('recentBadge')) : h('span', { className: 'rd-kicker' }, tr('updated')),
+          h('h3', null, project.title),
+          h('div', { className: 'rd-progress' }, project.progressLabel),
+          h('div', { className: 'rd-bar', 'aria-hidden': 'true' }, h('span', { style: { width: `${project.progress ?? 0}%` } })),
+          h('div', { className: 'rd-muted' }, project.updatedAt.slice(0, 10)),
+          h('div', { className: 'rd-actions' },
+            h('button', { className: 'rd-button primary', type: 'button', onClick: () => props.onSelect(project.id) }, tr('select')),
+            h('button', { className: 'rd-button', type: 'button', onClick: () => props.onRename(project.id, project.title) }, tr('rename')),
+            h('button', { className: 'rd-button danger', type: 'button', onClick: () => props.onDelete(project.id) }, tr('delete')))))))
     }
     function ContextMenu(props: { tr: Translate, menu: { x: number, y: number }, node?: NodeView, onAction: (action: string) => void }) {
       const node = props.node
       if (!node) return null
       return h('div', { className: 'rd-menu', role: 'menu', style: { left: props.menu.x, top: props.menu.y }, onMouseDown: (event: MouseEvent) => event.stopPropagation() },
-        h('button', { type: 'button', onClick: () => props.onAction('add') }, props.tr('addChild')),
+        h('button', { type: 'button', onClick: () => props.onAction('add-left') }, props.tr('addLeft')),
+        h('button', { type: 'button', onClick: () => props.onAction('add-right') }, props.tr('addRight')),
         h('button', { type: 'button', onClick: () => props.onAction('edit') }, props.tr('edit')),
         h('button', { type: 'button', onClick: () => props.onAction('due') }, props.tr('dueField')),
         h('button', { type: 'button', onClick: () => props.onAction('agent') }, props.tr('assign')),
@@ -838,7 +887,7 @@ loader.load({
       const node = nodes.find((item) => item.id === dialog.nodeId)
       if (dialog.type === 'project') return h(FormDialog, { tr, title: tr('newProjectTitle'), onClose, busy: props.busy, submitLabel: tr('create'), fields: [['title', tr('nameField'), 'input', ''], ['vision', tr('visionField'), 'textarea', '']], onSubmit: (fields: Record<string, string>) => props.onCreateProject(fields) })
       if (dialog.type === 'rename-project') return h(FormDialog, { tr, title: tr('rename'), onClose, busy: props.busy, fields: [['title', tr('nameField'), 'input', dialog.title || '']], onSubmit: (fields: Record<string, string>) => props.onRenameProject(dialog.projectId || '', fields.title || '') })
-      if (dialog.type === 'node') return h(FormDialog, { tr, title: tr('newNode'), onClose, busy: props.busy, submitLabel: tr('create'), fields: [['title', tr('titleField'), 'input', ''], ['intent', tr('intentField'), 'textarea', '']], onSubmit: (fields: Record<string, string>) => props.onCreateNode({ ...fields, parentId: dialog.parentId || '' }) })
+      if (dialog.type === 'node') return h(FormDialog, { tr, title: dialog.side === 'left' ? tr('addLeft') : tr('addRight'), onClose, busy: props.busy, submitLabel: tr('create'), fields: [['title', tr('titleField'), 'input', ''], ['intent', tr('intentField'), 'textarea', '']], onSubmit: (fields: Record<string, string>) => props.onCreateNode({ ...fields, parentId: dialog.parentId || '', side: dialog.side || 'right' }) })
       if (dialog.type === 'edit' && node) return h(FormDialog, { tr, title: tr('editNode'), onClose, busy: props.busy, fields: [['title', tr('titleField'), 'input', node.title], ['intent', tr('intentField'), 'textarea', node.intent], ['status', tr('statusField'), 'status', node.status], ['progress', tr('progressField'), 'number', node.progress ?? ''], ['dueAt', tr('dueField'), 'date', node.dueAt || ''], ['notes', tr('notesField'), 'textarea', node.notes]], onSubmit: (fields: Record<string, string>) => props.onUpdateNode({ nodeId: node.id, title: fields.title, intent: fields.intent, status: fields.status, progress: fields.progress === '' ? null : Number(fields.progress), dueAt: fields.dueAt || null, notes: fields.notes }) })
       if (dialog.type === 'due' && node) return h(FormDialog, { tr, title: tr('dueTitle'), onClose, busy: props.busy, fields: [['dueAt', tr('dueField'), 'date', dialog.dueAt || '']], extra: h('button', { className: 'rd-button', type: 'button', onClick: () => { void props.onUpdateNode({ nodeId: node.id, dueAt: null }).catch(() => {}) } }, tr('clearDue')), onSubmit: (fields: Record<string, string>) => props.onUpdateNode({ nodeId: node.id, dueAt: fields.dueAt || null }) })
       if (dialog.type === 'confirm-node') return h(ConfirmDialog, { tr, title: tr('confirmDelete'), body: tr('cascadeHint'), busy: props.busy, onClose, onConfirm: () => props.onDeleteNode(dialog.nodeId || '') })
@@ -946,7 +995,7 @@ interface NodeView {
   sessions: SessionLink[]
   rolled?: { label: string, due?: { state: string, offset: number | null }, childStatuses: string[] }
 }
-interface ProjectRow { id: string, title: string, progressLabel: string, updatedAt: string }
+interface ProjectRow { id: string, title: string, progress?: number, progressLabel: string, updatedAt: string }
 interface Snapshot {
   settings: { overviewHidden: boolean, activeProjectId: string | null }
   projects: ProjectRow[]
@@ -959,7 +1008,7 @@ interface Snapshot {
 }
 interface SessionRow { sessionId: string, title: string }
 interface GroupRow { id: string, title: string, path: string }
-interface DialogState { type: string, nodeId?: string, parentId?: string, dueAt?: string, projectId?: string, title?: string, linkId?: string }
+interface DialogState { type: string, nodeId?: string, parentId?: string, side?: 'left' | 'right', dueAt?: string, projectId?: string, title?: string, linkId?: string }
 interface AsideProps {
   tr: Translate
   active: NonNullable<Snapshot['active']>
@@ -972,8 +1021,9 @@ interface AsideProps {
   onManage: () => void
   onSelect: (id: string) => void
   onEdit: () => void
-  onAdd: (parentId: string) => void
+  onAdd: (parentId: string, side: 'left' | 'right') => void
   onDelete: () => void
+  onConfirm: () => void
   onAgent: () => void
   onUnlink: (linkId: string) => void
   onSaveEvaluation: (evaluation: string) => Promise<void>

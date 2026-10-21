@@ -12,7 +12,7 @@ export const ROUTE_PREFIX = '/api/rendu'
 const PROMPT = [
   'Rendu (`rendu`) stores a hierarchical vision. Each project has one root vision.',
   'Before executing, splitting, or judging a node, call action "brief" and use the core vision, the ancestor requirements, the sibling branches, and the linked sessions.',
-  'Write status, progress, notes, and deadlines back with update_node or set_status. Link extra conversations with link_session. Do not delete the root vision node.',
+  'Write status, progress, notes, and deadlines back with update_node or set_status. Progress is your judgment. Reaching 100 marks the node 完成待确认; do not mark it done, a person confirms that. Link extra conversations with link_session. Do not delete the root vision node.',
 ].join(' ')
 
 export function apply(ctx: RenduContext): void {
@@ -125,7 +125,7 @@ class RenduService {
 function toolDefinition(service: RenduService) {
   return {
     name: 'rendu',
-    description: '读取或更新任督二脉愿景图。执行、拆分或判断节点前，先用 action=brief 看核心宗旨、上级链路、兄弟分支和已关联会话。用 update_node 或 set_status 回写。用 link_session 关联已有会话。不能删除主节点。',
+    description: '读取或更新任督二脉愿景图。执行、拆分或判断节点前，先用 action=brief 看核心宗旨、上级链路、兄弟分支和已关联会话。进度由你判断，用 update_node 写入；到 100 会变成完成待确认，不要直接标完成。用 link_session 关联已有会话。不能删除主节点。',
     parameters: {
       type: 'object',
       additionalProperties: true,
@@ -139,15 +139,16 @@ function toolDefinition(service: RenduService) {
         projectId: { type: 'string', description: '项目 id。evaluate 时必填。' },
         nodeId: { type: 'string', description: '节点 id。brief、update_node、set_status、delete_node、link_session、unlink_session 时必填。' },
         parentId: { type: 'string', description: '父节点 id。create_node 时必填。' },
+        side: { type: 'string', enum: ['left', 'right'], description: '新节点放在父节点左侧还是右侧。默认 right。' },
         title: { type: 'string', description: '项目名称或节点标题，最多 80 字。' },
         vision: { type: 'string', description: '创建项目时的核心宗旨。' },
         intent: { type: 'string', description: '这个节点要完成什么，必须服务于宗旨。' },
         status: {
           type: 'string',
-          enum: ['backlog', 'doing', 'blocked', 'review', 'done', 'dropped'],
-          description: '未开始 backlog，进行中 doing，受阻 blocked，待验收 review，完成 done，放弃 dropped。',
+          enum: ['backlog', 'doing', 'blocked', 'review', 'confirm', 'dropped'],
+          description: '未开始 backlog，进行中 doing，受阻 blocked，待验收 review，完成待确认 confirm，放弃 dropped。不要传 done，进度到 100 会自动变成 confirm，等人确认。',
         },
-        progress: { type: 'integer', description: '叶子节点的手动进度，0 到 100。留空则按状态估算。有子节点时进度由子节点汇总。' },
+        progress: { type: 'integer', description: '你判断的进度，0 到 100。到 100 会把状态改成完成待确认，不能直接完成。有子节点时图上的百分比仍由子节点汇总。' },
         dueAt: { type: 'string', description: '截止日期 YYYY-MM-DD。空字符串表示清除。' },
         notes: { type: 'string', description: '给后来的人和 Agent 看的笔记。' },
         evaluation: { type: 'string', description: '项目级评价，会替换当前评价。' },
@@ -188,7 +189,8 @@ async function runTool(service: RenduService, args: Record<string, unknown>) {
     const saved = await service.mutate({ action: 'update_project', projectId: args.projectId, evaluation: args.evaluation ?? '' })
     return { ok: true, text: '项目评价已更新。', result: saved.result }
   }
-  const saved = await service.mutate({ ...args, action })
+  const fromAgent = action === 'update_node' || action === 'set_status'
+  const saved = await service.mutate({ ...args, action, ...(fromAgent ? { source: 'agent' } : {}) })
   if (action === 'delete_node' || action === 'delete_project' || action === 'unlink_session' || action === 'link_session') {
     const text = action === 'delete_node'
       ? `已删除节点及其 ${String(saved.result.removed ?? 1)} 个后代。`
@@ -243,7 +245,7 @@ async function dispatchNode(ctx: RenduContext, service: RenduService, body: Reco
   const prompt = [
     `你被指定执行任督二脉节点「${title}」。`,
     '先根据下面的简报理解核心宗旨、上级要求、兄弟分支和已经关联的会话，再决定怎么做。',
-    '需要刷新时调用 rendu，action 用 brief。改完后用 update_node 或 set_status 回写状态、进度和笔记。',
+    '需要刷新时调用 rendu，action 用 brief。进度由你判断并用 update_node 写入。到 100 会变成完成待确认，不要直接标成完成。',
     '不要偏离宗旨，也不要改掉其他链路正在做的事，除非它们和宗旨冲突。',
     '',
     text,

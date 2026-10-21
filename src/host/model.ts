@@ -4,7 +4,7 @@
  */
 import { randomUUID } from 'node:crypto'
 
-export const STATUSES = ['backlog', 'doing', 'blocked', 'review', 'done', 'dropped'] as const
+export const STATUSES = ['backlog', 'doing', 'blocked', 'review', 'confirm', 'done', 'dropped'] as const
 export type Status = (typeof STATUSES)[number]
 export const RECOMMENDED_DEPTH = 4
 export const MAX_DEPTH = 6
@@ -17,6 +17,7 @@ const STATUS_PROGRESS: Record<Status, number> = {
   doing: 45,
   blocked: 20,
   review: 80,
+  confirm: 100,
   done: 100,
   dropped: 0,
 }
@@ -340,7 +341,7 @@ export function brief(input: AtlasState, nodeId: string, now = new Date()): stri
     lines.push(`- ${link.sessionId}｜${link.label || '未命名会话'}${link.error ? `｜失败：${link.error}` : ''}`)
   }
   if (project.evaluation) lines.push(`项目评价：${clip(project.evaluation, 800)}`)
-  lines.push('约束：一切拆分和执行都要服务于核心宗旨；先看整条链路和兄弟分支，再改本节点。完成后用工具回写状态、进度和笔记。')
+  lines.push('约束：一切拆分和执行都要服务于核心宗旨；先看整条链路和兄弟分支，再改本节点。进度由你判断并用 update_node 写入。进度到 100 会变成完成待确认，不能由你直接标成完成，要等人确认。')
   lines.push(`nodeId：${node.id}`)
   lines.push(`projectId：${project.id}`)
   return lines.join('\n')
@@ -360,12 +361,12 @@ export function rollup(state: AtlasState, nodeId: string, today: string, seen = 
   let total = 0
   if (children.length === 0) {
     progress = node.status === 'dropped' ? 0 : leafProgress(node)
-    done = progress === 100 ? 1 : 0
+    done = node.status === 'done' ? 1 : 0
     total = node.status === 'dropped' ? 0 : 1
   } else {
     const childRolls = active.map((child) => rollup(state, child.id, today, nextSeen))
     total = active.length
-    done = childRolls.filter((item) => item.progress === 100).length
+    done = childRolls.filter((item) => item.total > 0 && item.done === item.total).length
     progress = total === 0 ? 0 : Math.round(childRolls.reduce((sum, item) => sum + item.progress, 0) / total)
   }
   const due = dueInfo(node.dueAt, today, state.settings.warningDays)
@@ -422,11 +423,13 @@ function overview(state: AtlasState, projectId: string, today: string) {
   }
   alerts.sort((a, b) => (a.offset ?? 0) - (b.offset ?? 0))
   const leaves = nodes.filter((node) => childrenOf(state, node.id).length === 0 && node.status !== 'dropped')
-  const allDone = leaves.length > 0 && leaves.every((node) => leafProgress(node) === 100)
+  const allDone = leaves.length > 0 && leaves.every((node) => node.status === 'done')
+  const awaiting = leaves.some((node) => node.status === 'confirm')
   const childCount = root ? childrenOf(state, root.id).length : 0
   let verdict = 'clear'
   if (!root || childCount === 0) verdict = 'empty'
   else if (allDone) verdict = 'done'
+  else if (awaiting && leaves.every((node) => node.status === 'done' || node.status === 'confirm')) verdict = 'confirm'
   else if (counts.blocked > 0) verdict = 'blocked'
   else if (alerts.length > 0) verdict = 'risk'
   return {
@@ -535,6 +538,8 @@ function createNode(state: AtlasState, command: Record<string, unknown>, stamp: 
   }
   assertRoom(state, parent.projectId)
   const siblings = childrenOf(state, parent.id)
+  const side = command.side === 'left' ? 'left' : 'right'
+  const onSide = siblings.filter((item) => (side === 'left' ? item.x + 118 < parent.x + 118 : item.x + 118 >= parent.x + 118))
   const nodeId = randomUUID()
   state.nodes[nodeId] = blankNode({
     id: nodeId,
@@ -542,8 +547,8 @@ function createNode(state: AtlasState, command: Record<string, unknown>, stamp: 
     parentId: parent.id,
     title: requiredText(command.title, 80, '节点标题'),
     intent: optionalText(command.intent, 4000, '要求'),
-    x: parent.x + 300,
-    y: parent.y + siblings.length * 148,
+    x: side === 'left' ? parent.x - 300 : parent.x + 300,
+    y: parent.y + onSide.length * 148,
     order: siblings.length,
     createdAt: stamp,
     updatedAt: stamp,
@@ -562,14 +567,17 @@ function createNode(state: AtlasState, command: Record<string, unknown>, stamp: 
 
 function updateNode(state: AtlasState, command: Record<string, unknown>, stamp: string) {
   const node = mustNode(state, command.nodeId)
+  const fromAgent = command.source === 'agent'
   if (command.title != null) node.title = requiredText(command.title, 80, '节点标题')
   if (command.intent != null) node.intent = optionalText(command.intent, 4000, '要求')
   if (command.notes != null) node.notes = optionalText(command.notes, 8000, '笔记')
   if (command.status != null) {
     if (!STATUSES.includes(command.status as Status)) throw new Error('状态不正确')
-    node.status = command.status as Status
+    node.status = fromAgent && command.status === 'done' ? 'confirm' : command.status as Status
   }
   if (Object.prototype.hasOwnProperty.call(command, 'progress')) node.progress = progressOrNull(command.progress, true)
+  if (fromAgent && node.progress === 100 && node.status !== 'dropped' && node.status !== 'done') node.status = 'confirm'
+  if (fromAgent && node.progress != null && node.progress < 100 && node.status === 'confirm' && command.status == null) node.status = 'doing'
   if (Object.prototype.hasOwnProperty.call(command, 'dueAt')) {
     if (command.dueAt == null || command.dueAt === '') node.dueAt = null
     else {
