@@ -93,6 +93,7 @@ loader.load({
       fit: '适配',
       refresh: '刷新',
       panHint: '拖空白或滚轮平移，按住 ⌘/Ctrl 再滚轮才缩放。',
+      headerGesture: '拖动移动窗口，双击放大或还原',
       layout: '整理布局',
       layoutTidy: '一键整理',
       layoutTidyHint: '保持现在的左右，拉开重叠',
@@ -233,6 +234,7 @@ loader.load({
       fit: 'Fit',
       refresh: 'Refresh',
       panHint: 'Drag empty space or scroll to pan. Hold ⌘ or Ctrl and scroll to zoom.',
+      headerGesture: 'Drag to move the window. Double-click to zoom or restore.',
       layout: 'Tidy layout',
       layoutTidy: 'Tidy in place',
       layoutTidyHint: 'Keep the current sides and separate overlaps',
@@ -327,7 +329,8 @@ loader.load({
     }
     const CSS = `
 .rd-page{position:relative;height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit}
-.rd-header{display:flex;align-items:center;gap:8px;min-height:56px;padding:8px 14px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
+.rd-header{display:flex;align-items:center;gap:8px;min-height:56px;padding:8px 14px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);-webkit-app-region:drag;app-region:drag;user-select:none}
+.rd-header button,.rd-header select,.rd-header input,.rd-header a{-webkit-app-region:no-drag;app-region:no-drag}
 .rd-mark{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-bg-base);flex:none}
 .rd-title{font-size:15px;font-weight:600;line-height:1.2}
 .rd-subtitle{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.4;max-width:420px}
@@ -809,7 +812,7 @@ loader.load({
 
       return h('div', { className: 'rd-page', ref: pageRef },
         h('style', null, CSS),
-        h('header', { className: 'rd-header' },
+        h('header', { className: 'rd-header', title: tr('headerGesture') },
           h('span', { className: 'rd-mark', 'aria-hidden': 'true' }, h(PanelIcon, { size: 22 })),
           h('div', { className: 'rd-row', style: { flexDirection: 'column', alignItems: 'flex-start', gap: 0 } },
             h('div', { className: 'rd-title' }, tr('nav')),
