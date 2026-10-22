@@ -32,6 +32,8 @@ loader.load({
     const React = require('react')
     const h = React.createElement
     const PANEL = 'rendu'
+    const CARD_W = 236
+    const CARD_H = 148
     const API = '/api/rendu'
     const STATUSES = ['backlog', 'doing', 'blocked', 'review', 'confirm', 'done', 'dropped']
     const COLOR: Record<string, string> = {
@@ -62,8 +64,6 @@ loader.load({
       save: '保存',
       saved: '评价已保存',
       addChild: '添加子节点',
-      addLeft: '在左侧添加',
-      addRight: '在右侧添加',
       edit: '编辑',
       delete: '删除',
       deleteProject: '删除项目',
@@ -188,8 +188,6 @@ loader.load({
       save: 'Save',
       saved: 'Review saved',
       addChild: 'Add child',
-      addLeft: 'Add on the left',
-      addRight: 'Add on the right',
       edit: 'Edit',
       delete: 'Delete',
       deleteProject: 'Delete project',
@@ -308,7 +306,9 @@ loader.load({
 .rd-button:disabled{opacity:.45;cursor:not-allowed}
 .rd-button.primary{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-bg-base);font-weight:600}
 .rd-button.danger{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}
-.rd-button:focus-visible,.rd-input:focus,.rd-textarea:focus,.rd-select:focus{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
+.rd-button:focus-visible,.rd-icon-button:focus-visible,.rd-input:focus,.rd-textarea:focus,.rd-select:focus{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
+.rd-icon-button{width:32px;padding:0;display:inline-grid;place-items:center;color:var(--dsw-alias-label-secondary)}
+.rd-icon-button:hover:not(:disabled){color:var(--dsw-alias-label-primary)}
 .rd-select,.rd-input,.rd-textarea{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px}
 .rd-select{min-height:32px;max-width:220px}
 .rd-textarea{width:100%;min-height:84px;resize:vertical;line-height:1.55}
@@ -320,7 +320,7 @@ loader.load({
 .rd-edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 .rd-flow{fill:none;stroke:var(--dsw-alias-brand-primary);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:1.5 13;animation:rd-flow .85s linear infinite}
 @keyframes rd-flow{to{stroke-dashoffset:-29}}
-.rd-card{position:absolute;width:236px;box-sizing:border-box;padding:10px 12px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);cursor:grab;text-align:left;color:inherit;font:inherit}
+.rd-card{position:absolute;width:236px;height:148px;box-sizing:border-box;padding:10px 12px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);cursor:grab;text-align:left;color:inherit;font:inherit;overflow:hidden}
 .rd-card[data-selected=true]{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary)}
 .rd-card[data-due=soon]{border-color:var(--dsw-alias-state-warn-primary)}
 .rd-card[data-due=due],.rd-card[data-due=overdue]{border-color:var(--dsw-alias-state-error-primary)}
@@ -370,19 +370,22 @@ loader.load({
 .rd-empty{margin:auto;max-width:460px;padding:28px;text-align:left}
 .rd-empty h2{margin:8px 0;font-size:22px}
 .rd-hint{position:absolute;left:12px;bottom:12px;max-width:min(520px,calc(100% - 24px));padding:6px 8px;border-radius:8px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-secondary);font-size:11.5px;line-height:1.4;pointer-events:none}
-.rd-overlay{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:color-mix(in srgb,var(--dsw-alias-bg-base) 28%,transparent);padding:20px}
-.rd-dialog{width:min(460px,100%);max-height:calc(100% - 24px);overflow:auto;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-overlay);padding:16px}
+.rd-overlay{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:color-mix(in srgb,var(--dsw-alias-bg-base) 62%,transparent);padding:20px}
+.rd-dialog{width:min(460px,100%);max-height:calc(100% - 24px);overflow:auto;border:1px solid var(--dsw-alias-border-l2);border-top:2px solid var(--dsw-alias-brand-primary);border-radius:12px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 72%,var(--dsw-alias-bg-base));padding:16px;box-shadow:0 24px 64px color-mix(in srgb,var(--dsw-alias-bg-base) 72%,transparent)}
+.rd-dialog .rd-input,.rd-dialog .rd-textarea,.rd-dialog .rd-select{background:var(--dsw-alias-bg-base)}
+.rd-dialog .rd-button:not(.primary){background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base))}
 .rd-manage{width:min(720px,100%);max-height:calc(100% - 24px)}
 .rd-dialog h2{margin:0;font-size:16px}
 .rd-dialog-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:12px}
 .rd-menu-backdrop{position:absolute;inset:0;z-index:5}
-.rd-menu{position:absolute;z-index:6;min-width:196px;padding:6px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-overlay)}
+.rd-menu{position:absolute;z-index:6;min-width:196px;padding:6px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 76%,var(--dsw-alias-bg-base));box-shadow:0 16px 40px color-mix(in srgb,var(--dsw-alias-bg-base) 68%,transparent)}
 .rd-menu button{display:flex;width:100%;text-align:left;border:0;background:transparent;color:inherit;font:inherit;font-size:13px;min-height:32px;padding:0 8px;border-radius:7px;cursor:pointer}
 .rd-menu button:hover{background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-layer-1))}
 .rd-menu-label{padding:6px 8px 2px;font-size:11px;color:var(--dsw-alias-label-secondary)}
 .rd-link{border:0;background:transparent;color:var(--dsw-alias-brand-primary);font:inherit;font-size:12.5px;padding:0;cursor:pointer}
-.rd-rail{width:36px;flex:none;border-left:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);display:flex;align-items:flex-start;justify-content:center;padding-top:12px}
-.rd-rail button{writing-mode:vertical-rl;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;cursor:pointer}
+.rd-zoom{position:absolute;right:12px;top:12px;display:flex;align-items:center;gap:4px;padding:4px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-overlay)}
+.rd-zoom input[type=range]{width:92px;margin:0 2px;accent-color:var(--dsw-alias-brand-primary);cursor:ew-resize}
+.rd-zoom-label{min-width:40px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary)}
 @media(max-width:860px){.rd-body{flex-direction:column}.rd-aside{width:auto;height:46%;border-left:0;border-top:1px solid var(--dsw-alias-border-l1)}}
 `
 
@@ -419,6 +422,23 @@ loader.load({
       if (!response.ok) throw new Error(value?.error || `HTTP ${response.status}`)
       return value as Snapshot & { sessions?: SessionRow[], workspaces?: GroupRow[], snapshot?: Snapshot, result?: { rootId?: string, nodeId?: string, warning?: string } }
     }
+    function GlassIcon(props: { plus: boolean }) {
+      return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true' },
+        h('circle', { cx: 10, cy: 10, r: 5.5, stroke: 'currentColor', strokeWidth: 1.6 }),
+        h('path', { d: 'M14.2 14.2 18.5 18.5', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }),
+        h('path', { d: 'M8 10h4', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }),
+        props.plus ? h('path', { d: 'M10 8v4', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }) : null)
+    }
+    function FitIcon() {
+      return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true' },
+        h('path', { d: 'M9 4H5.5A1.5 1.5 0 0 0 4 5.5V9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }))
+    }
+    function OverviewIcon(props: { open: boolean }) {
+      return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true' },
+        h('rect', { x: 3.5, y: 4.5, width: 17, height: 15, rx: 2.2, stroke: 'currentColor', strokeWidth: 1.6 }),
+        h('path', { d: 'M15.2 4.5v15', stroke: 'currentColor', strokeWidth: 1.6 }),
+        props.open ? h('rect', { x: 15.8, y: 5.4, width: 4, height: 13.2, rx: 0.8, fill: 'currentColor' }) : null)
+    }
     function PanelIcon(props: { size?: number, active?: boolean }) {
       const size = Number(props.size) || 24
       return h('span', {
@@ -452,8 +472,9 @@ loader.load({
       const viewportRef = React.useRef<HTMLElement | null>(null)
       const epoch = React.useRef(0)
       const viewRef = React.useRef(view)
+      const zoomDrag = React.useRef<{ zoom: number, panX: number, panY: number, cx: number, cy: number } | null>(null)
       const saveTimer = React.useRef(0)
-      viewRef.current = view
+      if (!zoomDrag.current) viewRef.current = view
       React.useEffect(() => locale.subscribe(() => setRevision((value) => value + 1)), [locale])
       const tr = (key: string, vars?: Record<string, string | number>) => text(translate, key, vars)
       void revision
@@ -571,21 +592,64 @@ loader.load({
           const py = event.clientY - rect.top
           setView((current) => {
             const nextZoom = clamp(current.zoom * (event.deltaY < 0 ? 1.08 : 0.92), 0.4, 1.8)
-            const scale = nextZoom / current.zoom
-            return { zoom: nextZoom, panX: px - (px - current.panX) * scale, panY: py - (py - current.panY) * scale }
+            const scale = current.zoom === 0 ? 1 : nextZoom / current.zoom
+            const next = { zoom: nextZoom, panX: px - (px - current.panX) * scale, panY: py - (py - current.panY) * scale }
+            viewRef.current = next
+            return next
           })
           scheduleSaveView()
         }
         port.addEventListener('wheel', onWheel, { passive: false })
         return () => port.removeEventListener('wheel', onWheel)
       }, [projectId])
+      function viewportCenter() {
+        const port = viewportRef.current
+        return { cx: port ? port.clientWidth / 2 : 0, cy: port ? port.clientHeight / 2 : 0 }
+      }
+      function beginZoomDrag() {
+        if (zoomDrag.current) return
+        zoomDrag.current = { ...viewRef.current, ...viewportCenter() }
+        window.addEventListener('pointerup', endZoomDrag)
+        window.addEventListener('pointercancel', endZoomDrag)
+      }
+      function zoomFromBase(percent: number) {
+        if (!zoomDrag.current) beginZoomDrag()
+        const origin = zoomDrag.current
+        if (!origin) return
+        const zoom = clamp(percent / 100, 0.4, 1.8)
+        const scale = origin.zoom === 0 ? 1 : zoom / origin.zoom
+        const next = {
+          zoom,
+          panX: origin.cx - (origin.cx - origin.panX) * scale,
+          panY: origin.cy - (origin.cy - origin.panY) * scale,
+        }
+        viewRef.current = next
+        setView(next)
+      }
+      function endZoomDrag() {
+        window.removeEventListener('pointerup', endZoomDrag)
+        window.removeEventListener('pointercancel', endZoomDrag)
+        if (!zoomDrag.current) return
+        zoomDrag.current = null
+        scheduleSaveView()
+      }
+      function zoomBy(factor: number) {
+        const current = viewRef.current
+        const { cx, cy } = viewportCenter()
+        const zoom = clamp(current.zoom * factor, 0.4, 1.8)
+        const scale = current.zoom === 0 ? 1 : zoom / current.zoom
+        const next = { zoom, panX: cx - (cx - current.panX) * scale, panY: cy - (cy - current.panY) * scale }
+        viewRef.current = next
+        setView(next)
+        scheduleSaveView()
+      }
       function fit() {
         const port = viewportRef.current
         if (!port || nodes.length === 0) return
         const minX = Math.min(...nodes.map((node) => node.x))
         const minY = Math.min(...nodes.map((node) => node.y))
-        const maxX = Math.max(...nodes.map((node) => node.x + 236))
-        const maxY = Math.max(...nodes.map((node) => node.y + 132))
+        const maxX = Math.max(...nodes.map((node) => node.x + CARD_W))
+        const maxY = Math.max(...nodes.map((node) => node.y + CARD_H))
         const zoom = clamp(Math.min((port.clientWidth - 72) / Math.max(1, maxX - minX), (port.clientHeight - 72) / Math.max(1, maxY - minY), 1), 0.4, 1.8)
         const next = { zoom, panX: (port.clientWidth - (maxX - minX) * zoom) / 2 - minX * zoom, panY: (port.clientHeight - (maxY - minY) * zoom) / 2 - minY * zoom }
         setView(next)
@@ -642,7 +706,15 @@ loader.load({
           }, snapshot.projects.map((project) => h('option', { key: project.id, value: project.id }, `${project.title} · ${project.progressLabel}`))) : null,
           h('button', { className: 'rd-button', type: 'button', onClick: () => setDialog({ type: 'project' }) }, tr('newProject')),
           h('button', { className: 'rd-button', type: 'button', onClick: () => setPage('manage') }, tr('viewMore')),
-          h('button', { className: 'rd-button', type: 'button', disabled: busy, onClick: () => { void command('set_overview', { hidden: !hidden }).catch(() => {}) } }, hidden ? tr('showOverview') : tr('hideOverview'))),
+          h('button', {
+            className: 'rd-button rd-icon-button',
+            type: 'button',
+            disabled: busy,
+            'aria-label': hidden ? tr('showOverview') : tr('hideOverview'),
+            'aria-pressed': hidden ? 'false' : 'true',
+            title: hidden ? tr('showOverview') : tr('hideOverview'),
+            onClick: () => { void command('set_overview', { hidden: !hidden }).catch(() => {}) },
+          }, h(OverviewIcon, { open: !hidden }))),
         error ? h('div', { className: 'rd-banner error', role: 'alert' }, error, ' ', h('button', { className: 'rd-link', type: 'button', onClick: () => setError('') }, tr('dismiss'))) : null,
         notice ? h('div', { className: 'rd-banner warn', role: 'status' }, notice, ' ', h('button', { className: 'rd-link', type: 'button', onClick: () => setNotice('') }, tr('dismiss'))) : null,
         !snapshot && booting ? h('div', { className: 'rd-empty' }, h('p', { className: 'rd-muted' }, tr('loading'))) : null,
@@ -689,17 +761,30 @@ loader.load({
                 onDoubleClick: (event: MouseEvent) => { event.stopPropagation(); setDialog({ type: 'edit', nodeId: node.id }) },
               }))),
             h('div', { className: 'rd-hint' }, tr('panHint')),
-            h('div', { style: { position: 'absolute', right: 12, top: 12, display: 'flex', gap: 6 } },
-              h('button', { className: 'rd-button', type: 'button', onClick: () => { setView((current) => ({ ...current, zoom: clamp(current.zoom * 1.1, 0.4, 1.8) })); scheduleSaveView() } }, tr('zoomIn')),
-              h('button', { className: 'rd-button', type: 'button', onClick: () => { setView((current) => ({ ...current, zoom: clamp(current.zoom / 1.1, 0.4, 1.8) })); scheduleSaveView() } }, tr('zoomOut')),
-              h('button', { className: 'rd-button', type: 'button', onClick: fit }, tr('fit')))),
-          hidden ? h('div', { className: 'rd-rail' }, h('button', { type: 'button', onClick: () => { void command('set_overview', { hidden: false }).catch(() => {}) } }, tr('showOverview'))) : h(Aside, {
+            h('div', { className: 'rd-zoom' },
+              h('button', { className: 'rd-button rd-icon-button', type: 'button', 'aria-label': tr('zoomOut'), title: tr('zoomOut'), onClick: () => zoomBy(1 / 1.1) }, h(GlassIcon, { plus: false })),
+              h('input', {
+                type: 'range',
+                min: 40,
+                max: 180,
+                step: 1,
+                value: Math.round(view.zoom * 100),
+                'aria-label': tr('zoomIn'),
+                onPointerDown: beginZoomDrag,
+                onInput: (event: Event) => zoomFromBase(Number((event.target as HTMLInputElement).value)),
+                onPointerUp: endZoomDrag,
+                onLostPointerCapture: endZoomDrag,
+              }),
+              h('span', { className: 'rd-zoom-label' }, `${Math.round(view.zoom * 100)}%`),
+              h('button', { className: 'rd-button rd-icon-button', type: 'button', 'aria-label': tr('zoomIn'), title: tr('zoomIn'), onClick: () => zoomBy(1.1) }, h(GlassIcon, { plus: true })),
+              h('button', { className: 'rd-button rd-icon-button', type: 'button', 'aria-label': tr('fit'), title: tr('fit'), onClick: fit }, h(FitIcon)))),
+          hidden ? null : h(Aside, {
             tr, active, selected, recent, currentId: projectId || '', busy, openSession,
             onSelectProject: (id: string) => { void command('select_project', { projectId: id }).catch(() => {}) },
             onManage: () => setPage('manage'),
             onSelect: (id: string) => { setSelectedId(id); setMenu(null) },
             onEdit: () => selected && setDialog({ type: 'edit', nodeId: selected.id }),
-            onAdd: (parentId: string, side: 'left' | 'right') => setDialog({ type: 'node', parentId, side }),
+            onAdd: (parentId: string) => setDialog({ type: 'node', parentId }),
             onDelete: () => selected && setDialog({ type: 'confirm-node', nodeId: selected.id }),
             onAgent: () => selected && void openAgent(selected.id),
             onConfirm: () => selected && void command('set_status', { nodeId: selected.id, status: 'done' }).catch(() => {}),
@@ -711,7 +796,7 @@ loader.load({
             const node = nodes.find((item) => item.id === menu.nodeId)
             setMenu(null)
             if (!node) return
-            if (action === 'add-left' || action === 'add-right') setDialog({ type: 'node', parentId: node.id, side: action === 'add-left' ? 'left' : 'right' })
+            if (action === 'add') setDialog({ type: 'node', parentId: node.id })
             if (action === 'edit') setDialog({ type: 'edit', nodeId: node.id })
             if (action === 'due') setDialog({ type: 'due', nodeId: node.id, dueAt: node.dueAt || '' })
             if (action === 'agent') void openAgent(node.id)
@@ -809,8 +894,7 @@ loader.load({
             h('div', { className: 'rd-actions' },
               selected.status === 'confirm' ? h('button', { className: 'rd-button primary', type: 'button', onClick: props.onConfirm }, tr('confirmDone')) : null,
               h('button', { className: 'rd-button', type: 'button', onClick: props.onEdit }, tr('edit')),
-              h('button', { className: 'rd-button', type: 'button', onClick: () => props.onAdd(selected.id, 'left') }, tr('addLeft')),
-              h('button', { className: 'rd-button', type: 'button', onClick: () => props.onAdd(selected.id, 'right') }, tr('addRight')),
+              h('button', { className: 'rd-button', type: 'button', onClick: () => props.onAdd(selected.id) }, tr('addChild')),
               h('button', { className: 'rd-button primary', type: 'button', onClick: props.onAgent }, tr('assign')),
               selected.parentId ? h('button', { className: 'rd-button danger', type: 'button', onClick: props.onDelete }, tr('delete')) : null)) : h('p', { className: 'rd-muted' }, tr('noSelection'))),
         h('div', { className: 'rd-section' },
@@ -821,19 +905,23 @@ loader.load({
     function nodeLive(node: NodeView) {
       return node.sessions.some((link) => link.running)
     }
+    function sideToward(from: NodeView, to: NodeView) {
+      const dx = (to.x + CARD_W / 2) - (from.x + CARD_W / 2)
+      const dy = (to.y + CARD_H / 2) - (from.y + CARD_H / 2)
+      if (Math.abs(dx) * CARD_H >= Math.abs(dy) * CARD_W) return dx >= 0 ? 'right' : 'left'
+      return dy >= 0 ? 'bottom' : 'top'
+    }
+    function port(node: NodeView, side: string) {
+      if (side === 'left') return { x: node.x, y: node.y + CARD_H / 2, nx: -1, ny: 0 }
+      if (side === 'right') return { x: node.x + CARD_W, y: node.y + CARD_H / 2, nx: 1, ny: 0 }
+      if (side === 'top') return { x: node.x + CARD_W / 2, y: node.y, nx: 0, ny: -1 }
+      return { x: node.x + CARD_W / 2, y: node.y + CARD_H, nx: 0, ny: 1 }
+    }
     function edgePath(parent: NodeView, child: NodeView) {
-      const parentCenter = parent.x + 118
-      const childCenter = child.x + 118
-      const parentSide = Math.abs(childCenter - parent.x) < Math.abs(childCenter - (parent.x + 236)) ? 'left' : 'right'
-      const childSide = Math.abs(parentCenter - child.x) <= Math.abs(parentCenter - (child.x + 236)) ? 'left' : 'right'
-      const x1 = parentSide === 'left' ? parent.x : parent.x + 236
-      const x2 = childSide === 'left' ? child.x : child.x + 236
-      const y1 = parent.y + 64
-      const y2 = child.y + 64
-      const dir1 = parentSide === 'left' ? -1 : 1
-      const dir2 = childSide === 'left' ? -1 : 1
-      const bend = Math.max(36, Math.abs(x2 - x1) / 2)
-      return `M ${x1} ${y1} C ${x1 + dir1 * bend} ${y1}, ${x2 + dir2 * bend} ${y2}, ${x2} ${y2}`
+      const start = port(parent, sideToward(parent, child))
+      const end = port(child, sideToward(child, parent))
+      const bend = Math.max(42, Math.hypot(end.x - start.x, end.y - start.y) / 3)
+      return `M ${start.x} ${start.y} C ${start.x + start.nx * bend} ${start.y + start.ny * bend}, ${end.x + end.nx * bend} ${end.y + end.ny * bend}, ${end.x} ${end.y}`
     }
     function linkError(node: NodeView) {
       const failed = node.sessions.find((link) => link.error)
@@ -883,8 +971,7 @@ loader.load({
       const node = props.node
       if (!node) return null
       return h('div', { className: 'rd-menu', role: 'menu', style: { left: props.menu.x, top: props.menu.y }, onMouseDown: (event: MouseEvent) => event.stopPropagation() },
-        h('button', { type: 'button', onClick: () => props.onAction('add-left') }, props.tr('addLeft')),
-        h('button', { type: 'button', onClick: () => props.onAction('add-right') }, props.tr('addRight')),
+        h('button', { type: 'button', onClick: () => props.onAction('add') }, props.tr('addChild')),
         h('button', { type: 'button', onClick: () => props.onAction('edit') }, props.tr('edit')),
         h('button', { type: 'button', onClick: () => props.onAction('due') }, props.tr('dueField')),
         h('button', { type: 'button', onClick: () => props.onAction('agent') }, props.tr('assign')),
@@ -897,7 +984,7 @@ loader.load({
       const node = nodes.find((item) => item.id === dialog.nodeId)
       if (dialog.type === 'project') return h(FormDialog, { tr, title: tr('newProjectTitle'), onClose, busy: props.busy, submitLabel: tr('create'), fields: [['title', tr('nameField'), 'input', ''], ['vision', tr('visionField'), 'textarea', '']], onSubmit: (fields: Record<string, string>) => props.onCreateProject(fields) })
       if (dialog.type === 'rename-project') return h(FormDialog, { tr, title: tr('rename'), onClose, busy: props.busy, fields: [['title', tr('nameField'), 'input', dialog.title || '']], onSubmit: (fields: Record<string, string>) => props.onRenameProject(dialog.projectId || '', fields.title || '') })
-      if (dialog.type === 'node') return h(FormDialog, { tr, title: dialog.side === 'left' ? tr('addLeft') : tr('addRight'), onClose, busy: props.busy, submitLabel: tr('create'), fields: [['title', tr('titleField'), 'input', ''], ['intent', tr('intentField'), 'textarea', '']], onSubmit: (fields: Record<string, string>) => props.onCreateNode({ ...fields, parentId: dialog.parentId || '', side: dialog.side || 'right' }) })
+      if (dialog.type === 'node') return h(FormDialog, { tr, title: tr('newNode'), onClose, busy: props.busy, submitLabel: tr('create'), fields: [['title', tr('titleField'), 'input', ''], ['intent', tr('intentField'), 'textarea', '']], onSubmit: (fields: Record<string, string>) => props.onCreateNode({ parentId: dialog.parentId || '', title: fields.title || '', intent: fields.intent || '' }) })
       if (dialog.type === 'edit' && node) return h(FormDialog, { tr, title: tr('editNode'), onClose, busy: props.busy, fields: [['title', tr('titleField'), 'input', node.title], ['intent', tr('intentField'), 'textarea', node.intent], ['status', tr('statusField'), 'status', node.status], ['progress', tr('progressField'), 'number', node.progress ?? ''], ['dueAt', tr('dueField'), 'date', node.dueAt || ''], ['notes', tr('notesField'), 'textarea', node.notes]], onSubmit: (fields: Record<string, string>) => props.onUpdateNode({ nodeId: node.id, title: fields.title, intent: fields.intent, status: fields.status, progress: fields.progress === '' ? null : Number(fields.progress), dueAt: fields.dueAt || null, notes: fields.notes }) })
       if (dialog.type === 'due' && node) return h(FormDialog, { tr, title: tr('dueTitle'), onClose, busy: props.busy, fields: [['dueAt', tr('dueField'), 'date', dialog.dueAt || '']], extra: h('button', { className: 'rd-button', type: 'button', onClick: () => { void props.onUpdateNode({ nodeId: node.id, dueAt: null }).catch(() => {}) } }, tr('clearDue')), onSubmit: (fields: Record<string, string>) => props.onUpdateNode({ nodeId: node.id, dueAt: fields.dueAt || null }) })
       if (dialog.type === 'confirm-node') return h(ConfirmDialog, { tr, title: tr('confirmDelete'), body: tr('cascadeHint'), busy: props.busy, onClose, onConfirm: () => props.onDeleteNode(dialog.nodeId || '') })
@@ -1031,7 +1118,7 @@ interface AsideProps {
   onManage: () => void
   onSelect: (id: string) => void
   onEdit: () => void
-  onAdd: (parentId: string, side: 'left' | 'right') => void
+  onAdd: (parentId: string) => void
   onDelete: () => void
   onConfirm: () => void
   onAgent: () => void
