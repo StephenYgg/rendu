@@ -45,6 +45,10 @@ CREATE TABLE IF NOT EXISTS node_sessions (
   created_at TEXT NOT NULL,
   error TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS output_watches (
+  session_id TEXT PRIMARY KEY,
+  scanned_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS outputs (
   id TEXT PRIMARY KEY,
   node_id TEXT NOT NULL,
@@ -82,6 +86,8 @@ export class RenduStore {
       if (row.key === 'maxDepth') settings.maxDepth = Number(row.value)
       if (row.key === 'activeProjectId') settings.activeProjectId = row.value || null
       if (row.key === 'overviewHidden') settings.overviewHidden = row.value === '1'
+      if (row.key === 'idleRefreshSeconds') settings.idleRefreshSeconds = Number(row.value)
+      if (row.key === 'runningRefreshSeconds') settings.runningRefreshSeconds = Number(row.value)
     }
     const projects: Record<string, ProjectRecord> = {}
     for (const row of this.db.prepare('SELECT * FROM projects').all() as Array<Record<string, unknown>>) {
@@ -162,6 +168,8 @@ export class RenduStore {
     put.run('maxDepth', String(settings.maxDepth))
     put.run('activeProjectId', settings.activeProjectId ?? '')
     put.run('overviewHidden', settings.overviewHidden ? '1' : '0')
+    put.run('idleRefreshSeconds', String(settings.idleRefreshSeconds))
+    put.run('runningRefreshSeconds', String(settings.runningRefreshSeconds))
   }
 
   private putProject(project: ProjectRecord): void {
@@ -204,6 +212,19 @@ export class RenduStore {
       VALUES (?, ?, ?, ?, ?, ?)
     `)
     for (const link of node.sessions) insert.run(link.id, node.id, link.sessionId, link.label, link.createdAt, link.error)
+  }
+
+  linkedSessionIds(): string[] {
+    return (this.db.prepare('SELECT DISTINCT session_id FROM node_sessions').all() as Array<{ session_id: string }>).map((row) => row.session_id)
+  }
+
+  hasWatch(sessionId: string): boolean {
+    return Boolean(this.db.prepare('SELECT 1 AS ok FROM output_watches WHERE session_id = ?').get(sessionId))
+  }
+
+  markWatch(sessionId: string): void {
+    this.db.prepare('INSERT INTO output_watches (session_id, scanned_at) VALUES (?, ?) ON CONFLICT(session_id) DO UPDATE SET scanned_at = excluded.scanned_at')
+      .run(sessionId, new Date().toISOString())
   }
 
   listOutputs(nodeId: string): OutputRow[] {

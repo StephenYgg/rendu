@@ -94,6 +94,10 @@ loader.load({
       refresh: '刷新',
       panHint: '拖空白或滚轮平移，按住 ⌘/Ctrl 再滚轮才缩放。',
       headerGesture: '拖动移动窗口，双击放大或还原',
+      settings: '刷新设置',
+      idleRefresh: '空闲间隔（秒）',
+      runningRefresh: 'Agent 运行中间隔（秒）',
+      refreshHint: '切到别的面板后停止刷新，重新打开时立刻刷新一次。产出在会话写出时写入数据库，不再定时扫描。',
       layout: '整理布局',
       layoutTidy: '一键整理',
       layoutTidyHint: '保持现在的左右，拉开重叠',
@@ -235,6 +239,10 @@ loader.load({
       refresh: 'Refresh',
       panHint: 'Drag empty space or scroll to pan. Hold ⌘ or Ctrl and scroll to zoom.',
       headerGesture: 'Drag to move the window. Double-click to zoom or restore.',
+      settings: 'Refresh settings',
+      idleRefresh: 'Idle interval (seconds)',
+      runningRefresh: 'Interval while an Agent is running',
+      refreshHint: 'Refresh stops while another panel is open, and runs once when this panel returns. Outputs are saved when a session writes them.',
       layout: 'Tidy layout',
       layoutTidy: 'Tidy in place',
       layoutTidyHint: 'Keep the current sides and separate overlaps',
@@ -501,6 +509,11 @@ loader.load({
       return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true' },
         h('path', { d: 'M9 4H5.5A1.5 1.5 0 0 0 4 5.5V9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }))
     }
+    function GearIcon() {
+      return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true' },
+        h('circle', { cx: 12, cy: 12, r: 3, stroke: 'currentColor', strokeWidth: 1.6 }),
+        h('path', { d: 'M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }))
+    }
     function OverviewIcon(props: { open: boolean }) {
       return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true' },
         h('rect', { x: 3.5, y: 4.5, width: 17, height: 15, rx: 2.2, stroke: 'currentColor', strokeWidth: 1.6 }),
@@ -537,6 +550,7 @@ loader.load({
       const [draft, setDraft] = React.useState<{ id: string, x: number, y: number } | null>(null)
       const [panning, setPanning] = React.useState(false)
       const [layoutOpen, setLayoutOpen] = React.useState(false)
+      const [pulse, setPulse] = React.useState(0)
       const pageRef = React.useRef<HTMLElement | null>(null)
       const viewportRef = React.useRef<HTMLElement | null>(null)
       const epoch = React.useRef(0)
@@ -559,6 +573,7 @@ loader.load({
           const value = await api('state', 'GET')
           if (seen !== epoch.current) return
           setSnapshot(value)
+          setPulse((value) => value + 1)
         } catch (err) {
           if (seen !== epoch.current) return
           setError(err instanceof Error ? err.message : String(err))
@@ -567,11 +582,24 @@ loader.load({
         }
       }, [])
       const agentLive = nodes.some((node) => node.sessions.some((link) => link.running))
-      React.useEffect(() => { void refresh() }, [refresh])
+      const idleSeconds = snapshot?.settings.idleRefreshSeconds ?? 30
+      const runningSeconds = snapshot?.settings.runningRefreshSeconds ?? 10
       React.useEffect(() => {
-        const timer = window.setInterval(() => { if (!document.hidden) void refresh() }, agentLive ? 1000 : 2500)
-        return () => window.clearInterval(timer)
-      }, [refresh, agentLive])
+        let stop = false
+        const wait = Math.min(300, Math.max(5, agentLive ? runningSeconds : idleSeconds)) * 1000
+        async function run() {
+          if (!stop && !document.hidden) await refresh()
+        }
+        void run()
+        const timer = window.setInterval(() => { void run() }, wait)
+        function onVisible() { if (!document.hidden) void run() }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => {
+          stop = true
+          window.clearInterval(timer)
+          document.removeEventListener('visibilitychange', onVisible)
+        }
+      }, [refresh, agentLive, idleSeconds, runningSeconds])
       React.useEffect(() => {
         if (!projectId) return
         const next = snapshot?.active?.project?.view
@@ -826,6 +854,7 @@ loader.load({
           }, snapshot.projects.map((project) => h('option', { key: project.id, value: project.id }, `${project.title} · ${project.progressLabel}`))) : null,
           h('button', { className: 'rd-button', type: 'button', onClick: () => setDialog({ type: 'project' }) }, tr('newProject')),
           h('button', { className: 'rd-button', type: 'button', onClick: () => setPage('manage') }, tr('viewMore')),
+          h('button', { className: 'rd-button rd-icon-button', type: 'button', 'aria-label': tr('settings'), title: tr('settings'), onClick: () => setDialog({ type: 'settings' }) }, h(GearIcon)),
           h('button', {
             className: 'rd-button rd-icon-button',
             type: 'button',
@@ -907,7 +936,7 @@ loader.load({
                   h('button', { type: 'button', onClick: () => { void runLayout('down') } }, tr('layoutDown')),
                   h('button', { type: 'button', onClick: () => { void runLayout('radial') } }, tr('layoutRadial'))) : null))),
           hidden ? null : h(Aside, {
-            tr, active, selected, recent, currentId: projectId || '', busy, openSession,
+            tr, active, selected, recent, currentId: projectId || '', busy, openSession, pulse,
             onSelectProject: (id: string) => { void command('select_project', { projectId: id }).catch(() => {}) },
             onManage: () => setPage('manage'),
             onSelect: (id: string) => { setSelectedId(id); setMenu(null) },
@@ -953,6 +982,9 @@ loader.load({
           onUnlink: async (nodeId: string, linkId: string) => { await command('unlink_session', { nodeId, linkId }); setDialog(null) },
           onDispatch: dispatch,
           onTogglePreview: () => setDialog((current: DialogState | null) => current?.type === 'preview' ? { ...current, maximized: !current.maximized } : current),
+          idleSeconds: snapshot?.settings.idleRefreshSeconds ?? 30,
+          runningSeconds: snapshot?.settings.runningRefreshSeconds ?? 10,
+          onSaveRefresh: async (idleSeconds: number, runningSeconds: number) => { await command('set_refresh', { idleSeconds, runningSeconds }); setDialog(null) },
         }) : null)
     }
 
@@ -1019,7 +1051,7 @@ loader.load({
                 h('button', { className: 'rd-link', type: 'button', onClick: () => openSession(link.sessionId) }, tr('openSession')),
                 ' ',
                 h('button', { className: 'rd-link', type: 'button', onClick: () => props.onUnlink(link.id) }, tr('unlink'))))),
-            h(OutputFold, { nodeId: selected.id, tr, onOpen: props.onOpenOutput }),
+            h(OutputFold, { nodeId: selected.id, pulse: props.pulse, tr, onOpen: props.onOpenOutput }),
             linkError(selected),
             selected.status === 'confirm' ? h('p', { className: 'rd-muted' }, tr('confirmHint')) : null,
             h('div', { className: 'rd-actions' },
@@ -1054,7 +1086,7 @@ loader.load({
       const bend = Math.max(42, Math.hypot(end.x - start.x, end.y - start.y) / 3)
       return `M ${start.x} ${start.y} C ${start.x + start.nx * bend} ${start.y + start.ny * bend}, ${end.x + end.nx * bend} ${end.y + end.ny * bend}, ${end.x} ${end.y}`
     }
-    function OutputFold(props: { nodeId: string, tr: Translate, onOpen: (doc: OutputDoc) => void }) {
+    function OutputFold(props: { nodeId: string, pulse: number, tr: Translate, onOpen: (doc: OutputDoc) => void }) {
       const [open, setOpen] = React.useState(false)
       const [docs, setDocs] = React.useState<OutputDoc[]>([])
       const [loading, setLoading] = React.useState(false)
@@ -1072,9 +1104,8 @@ loader.load({
           }
         }
         void load()
-        const timer = window.setInterval(() => { if (open && !document.hidden) void load() }, 5000)
-        return () => { stop = true; window.clearInterval(timer) }
-      }, [props.nodeId, open])
+        return () => { stop = true }
+      }, [props.nodeId, props.pulse])
       return h('div', { className: 'rd-section' },
         h('button', { className: 'rd-fold', type: 'button', 'aria-expanded': open ? 'true' : 'false', onClick: () => setOpen(!open) },
           h('span', { className: 'rd-kicker' }, props.tr('outputs')),
@@ -1156,6 +1187,7 @@ loader.load({
       if (dialog.type === 'confirm-unlink') return h(ConfirmDialog, { tr, title: tr('unlink'), body: tr('confirmUnlink'), busy: props.busy, onClose, onConfirm: () => props.onUnlink(dialog.nodeId || '', dialog.linkId || '') })
       if (dialog.type === 'agent') return h(AgentDialog, { tr, sessions: props.sessions, groups: props.groups, busy: props.busy, onClose, onDispatch: (body: Record<string, unknown>) => props.onDispatch({ nodeId: dialog.nodeId, ...body }) })
       if (dialog.type === 'preview') return h(PreviewDialog, { tr, dialog, onClose, onToggle: () => props.onTogglePreview?.() })
+      if (dialog.type === 'settings') return h(SettingsDialog, { tr, idle: props.idleSeconds ?? 30, running: props.runningSeconds ?? 10, busy: props.busy, onClose, onSave: (idleSeconds: number, runningSeconds: number) => props.onSaveRefresh?.(idleSeconds, runningSeconds) })
       return null
     }
     function FormDialog(props: { tr: Translate, title: string, fields: string[][], onClose: () => void, onSubmit: (fields: Record<string, string>) => Promise<unknown>, busy: boolean, extra?: unknown, submitLabel?: string }) {
@@ -1208,6 +1240,17 @@ loader.load({
           h('div', { className: 'rd-actions' },
             h('button', { className: 'rd-button', type: 'button', disabled: busy, onClick: () => props.onDispatch({ create: true, workspaceId, label: chosen?.title || '' }) }, tr('dispatchNew')),
             h('button', { className: 'rd-button', type: 'button', onClick: props.onClose }, tr('cancel')))))
+    }
+    function SettingsDialog(props: { tr: Translate, idle: number, running: number, busy: boolean, onClose: () => void, onSave: (idleSeconds: number, runningSeconds: number) => Promise<void> | void }) {
+      const [idle, setIdle] = React.useState(String(props.idle))
+      const [running, setRunning] = React.useState(String(props.running))
+      return h(Shell, { tr: props.tr, title: props.tr('settings'), onClose: props.onClose },
+        h('p', { className: 'rd-muted' }, props.tr('refreshHint')),
+        h('label', { className: 'rd-field' }, props.tr('idleRefresh'), h('input', { className: 'rd-input', type: 'number', min: 5, max: 300, value: idle, onChange: (event: Event) => setIdle((event.target as HTMLInputElement).value) })),
+        h('label', { className: 'rd-field' }, props.tr('runningRefresh'), h('input', { className: 'rd-input', type: 'number', min: 5, max: 300, value: running, onChange: (event: Event) => setRunning((event.target as HTMLInputElement).value) })),
+        h('div', { className: 'rd-actions' },
+          h('button', { className: 'rd-button primary', type: 'button', disabled: props.busy, onClick: () => { void props.onSave(Number(idle), Number(running)) } }, props.tr('save')),
+          h('button', { className: 'rd-button', type: 'button', onClick: props.onClose }, props.tr('cancel'))))
     }
     function PreviewDialog(props: { tr: Translate, dialog: DialogState, onClose: () => void, onToggle: () => void }) {
       const { tr, dialog } = props
@@ -1311,7 +1354,7 @@ interface NodeView {
 }
 interface ProjectRow { id: string, title: string, progress?: number, progressLabel: string, updatedAt: string }
 interface Snapshot {
-  settings: { overviewHidden: boolean, activeProjectId: string | null }
+  settings: { overviewHidden: boolean, activeProjectId: string | null, idleRefreshSeconds?: number, runningRefreshSeconds?: number }
   projects: ProjectRow[]
   recentProjects?: ProjectRow[]
   active: {
@@ -1331,6 +1374,7 @@ interface AsideProps {
   recent: ProjectRow[]
   currentId: string
   busy: boolean
+  pulse: number
   openSession: (sessionId: string) => void
   onSelectProject: (id: string) => void
   onManage: () => void
@@ -1361,4 +1405,7 @@ interface DialogProps {
   onUnlink: (nodeId: string, linkId: string) => Promise<void>
   onDispatch: (body: Record<string, unknown>) => void
   onTogglePreview?: () => void
+  idleSeconds?: number
+  runningSeconds?: number
+  onSaveRefresh?: (idleSeconds: number, runningSeconds: number) => Promise<void>
 }

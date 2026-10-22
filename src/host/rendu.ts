@@ -4,7 +4,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { brief, emptyState, normalizeState, reduce, snapshot, type AtlasState } from './model.js'
-import { readStoredOutput, rememberOutput, syncNodeOutputs } from './outputs.js'
+import { associateProduced, importSessionHistory, producedFromText, producedFromToolCall, readStoredOutput, rememberOutput, storedOutputs, type FoundOutput } from './outputs.js'
 import { RenduStore } from './store.js'
 
 export const inject = ['webServer', 'tools', 'systemPrompt', 'sessionController']
@@ -20,12 +20,15 @@ export function apply(ctx: RenduContext): void {
   const store = RenduStore.open()
   const service = new RenduService(store, () => runningSessionIds(ctx), (sessionId) => readSession(ctx, sessionId))
   ctx.effect(() => {
+    let disposed = false
     const disposeRoute = ctx.webServer.register({
       kind: 'prefix',
       path: ROUTE_PREFIX,
       handler: (req, res) => handle(ctx, service, req, res),
     })
     const disposeTool = ctx.tools.register(toolDefinition(service))
+    const disposeEvents = ctx.on('session/event', (session, event) => noteSessionEvent(service, session, event))
+    void backfillUnwatched(service, () => disposed)
     const disposePrompt = ctx.systemPrompt.section({
       name: 'rendu',
       order: 860,
@@ -33,6 +36,8 @@ export function apply(ctx: RenduContext): void {
       text: PROMPT,
     })
     return () => {
+      disposed = true
+      disposeEvents()
       disposeRoute()
       disposeTool()
       disposePrompt()
@@ -41,8 +46,79 @@ export function apply(ctx: RenduContext): void {
   }, 'rendu')
 }
 
+interface SessionEventSource {
+  id?: string
+  header?: { id?: string, cwd?: string }
+}
+
+interface SessionLogEvent {
+  type?: string
+  time?: number
+  data?: unknown
+}
+
+const pendingOutputs = new Map<string, { cwd: string, refs: FoundOutput[] }>()
+
+function noteSessionEvent(service: RenduService, session: SessionEventSource, event: SessionLogEvent) {
+  const sessionId = String(session.header?.id || session.id || '')
+  if (!sessionId) return
+  const cwd = session.header?.cwd || ''
+  const createdAt = typeof event.time === 'number' ? new Date(event.time).toISOString() : new Date().toISOString()
+  const data = asRecord(event.data)
+  if (event.type === 'tool/call') {
+    const callId = String(data?.callId ?? '')
+    const refs = producedFromToolCall(String(data?.name ?? ''), String(data?.arguments ?? ''), createdAt)
+    if (!callId || refs.length === 0) return
+    if (pendingOutputs.size > 300) pendingOutputs.clear()
+    pendingOutputs.set(`${sessionId}:${callId}`, { cwd, refs })
+    return
+  }
+  if (event.type === 'tool/result') {
+    const callId = toolResultCallId(data)
+    const saved = pendingOutputs.get(`${sessionId}:${callId}`)
+    pendingOutputs.delete(`${sessionId}:${callId}`)
+    if (!saved || data?.error) return
+    void service.noteProduced(sessionId, saved.cwd || cwd, saved.refs)
+    return
+  }
+  if (event.type === 'assistant/message') {
+    const refs = producedFromText(eventText(data), createdAt)
+    if (refs.length) void service.noteProduced(sessionId, cwd, refs)
+  }
+}
+
+async function backfillUnwatched(service: RenduService, stopped: () => boolean) {
+  for (const sessionId of service.unwatchedLinks()) {
+    if (stopped()) return
+    await service.importLinkedSession(sessionId)
+  }
+}
+
+function toolResultCallId(data: Record<string, unknown> | null): string {
+  const message = asRecord(data?.message)
+  const source = asRecord(message?.source)
+  return String(message?.toolCallId ?? source?.callId ?? '')
+}
+
+function eventText(data: Record<string, unknown> | null): string {
+  const message = asRecord(data?.message) ?? data
+  if (!message) return ''
+  if (typeof message.text === 'string') return message.text
+  if (typeof message.content === 'string') return message.content
+  if (!Array.isArray(message.content)) return ''
+  return message.content.map((part) => {
+    const item = asRecord(part)
+    return item && typeof item.text === 'string' ? item.text : ''
+  }).join('\n')
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
+}
+
 interface RenduContext {
   effect(callback: () => void | (() => void) | Promise<void>, label?: string): () => void
+  on(name: 'session/event', listener: (session: SessionEventSource, event: SessionLogEvent) => void): () => void
   get(name: string): unknown
   webServer: { register(route: { kind: 'prefix', path: string, handler: (req: IncomingRequest, res: ServerResponse) => void | Promise<void> }): () => void }
   tools: { register(definition: unknown): () => void }
@@ -107,11 +183,31 @@ class RenduService {
 
   outputs(nodeId: string) {
     return this.run(async () => {
-      const state = this.store.read()
-      const node = state.nodes[nodeId]
-      if (!node) throw new Error('找不到这个节点')
-      return syncNodeOutputs(this.store, nodeId, node.sessions.map((link) => link.sessionId), this.sessionReader)
+      if (!this.store.read().nodes[nodeId]) throw new Error('找不到这个节点')
+      return storedOutputs(this.store, nodeId)
     })
+  }
+
+  noteProduced(sessionId: string, cwd: string, refs: FoundOutput[]) {
+    return this.run(async () => associateProduced(this.store, sessionId, cwd, refs))
+  }
+
+  async importLinkedSession(sessionId: string) {
+    if (!sessionId) return
+    let session: { cwd?: string, events: unknown[] }
+    try {
+      session = await this.sessionReader(sessionId)
+    } catch {
+      return
+    }
+    await this.run(async () => {
+      await importSessionHistory(this.store, sessionId, session.cwd || '', session.events)
+      this.store.markWatch(sessionId)
+    })
+  }
+
+  unwatchedLinks() {
+    return this.store.linkedSessionIds().filter((sessionId) => !this.store.hasWatch(sessionId))
   }
 
   registerOutput(nodeId: string, filePath: string, title: string) {
@@ -169,7 +265,7 @@ function toolDefinition(service: RenduService) {
       properties: {
         action: {
           type: 'string',
-          enum: ['list', 'brief', 'create_project', 'create_node', 'update_node', 'set_status', 'delete_node', 'evaluate', 'link_session', 'unlink_session', 'add_output', 'list_outputs'],
+          enum: ['list', 'brief', 'create_project', 'create_node', 'update_node', 'set_status', 'delete_node', 'evaluate', 'link_session', 'unlink_session', 'add_output', 'list_outputs', 'set_refresh'],
           description: 'list 列出项目；brief 读取一个节点的宗旨、链路、兄弟分支和关联会话；其余为写入。',
         },
         projectId: { type: 'string', description: '项目 id。evaluate 时必填。' },
@@ -192,6 +288,8 @@ function toolDefinition(service: RenduService) {
         linkId: { type: 'string', description: '关联 id。unlink_session 时必填。' },
         label: { type: 'string', description: '会话显示名。' },
         path: { type: 'string', description: '产出位置。add_output 时必填。可以是本地 HTML、Markdown、CSV 路径，或一个 http(s) HTML 地址。关联、文件名和创建时间会写入任督的数据库。' },
+        idleSeconds: { type: 'integer', description: '面板空闲时的刷新间隔，秒。set_refresh 时使用，5 到 300，默认 30。' },
+        runningSeconds: { type: 'integer', description: '有 Agent 运行时的刷新间隔，秒。set_refresh 时使用，5 到 300，默认 10。' },
       },
     },
     output: {
@@ -236,6 +334,10 @@ async function runTool(service: RenduService, args: Record<string, unknown>) {
   }
   const fromAgent = action === 'update_node' || action === 'set_status'
   const saved = await service.mutate({ ...args, action, ...(fromAgent ? { source: 'agent' } : {}) })
+  if (action === 'link_session') {
+    const linked = String(saved.result.sessionId || args.sessionId || '')
+    if (linked) void service.importLinkedSession(linked)
+  }
   if (action === 'delete_node' || action === 'delete_project' || action === 'unlink_session' || action === 'link_session') {
     const text = action === 'delete_node'
       ? `已删除节点及其 ${String(saved.result.removed ?? 1)} 个后代。`
@@ -276,7 +378,12 @@ async function handle(ctx: RenduContext, service: RenduService, req: IncomingReq
       const command = body as Record<string, unknown>
       if (command.action === 'dispatch') return sendJson(res, 200, await dispatchNode(ctx, service, command))
       if (command.action === 'import_legacy') return sendJson(res, 200, await service.importLegacy(command.state))
-      return sendJson(res, 200, await service.mutate(command))
+      const saved = await service.mutate(command)
+      if (command.action === 'link_session') {
+        const linked = String(saved.result.sessionId || command.sessionId || '')
+        if (linked) void service.importLinkedSession(linked)
+      }
+      return sendJson(res, 200, saved)
     }
     return sendJson(res, 404, { error: `未知接口：${action || method}` })
   } catch (error) {
@@ -320,6 +427,7 @@ async function dispatchNode(ctx: RenduContext, service: RenduService, body: Reco
       // Renaming is a convenience. The handoff already succeeded.
     }
     const saved = await service.mutate({ action: 'link_session', nodeId, sessionId, label, error: '' })
+    void service.importLinkedSession(sessionId)
     return { ...saved, result: { ...saved.result, accepted: true } }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

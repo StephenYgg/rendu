@@ -50,7 +50,10 @@ assert.equal(cardsOverlap(radial.state), false)
 const ringRoot = radial.state.nodes[rootId]
 const ringChild = radial.state.nodes[leftNode.result.nodeId]
 assert.ok(Math.hypot((ringChild.x + 118) - (ringRoot.x + 118), (ringChild.y + 74) - (ringRoot.y + 74)) > 240)
-const hidden = reduce(state, { action: 'set_overview', hidden: true }, now)
+const refresh = reduce(state, { action: 'set_refresh', idleSeconds: 45, runningSeconds: 1 }, now)
+assert.equal(refresh.state.settings.idleRefreshSeconds, 45)
+assert.equal(refresh.state.settings.runningRefreshSeconds, 5)
+const hidden = reduce(refresh.state, { action: 'set_overview', hidden: true }, now)
 assert.equal(hidden.state.settings.overviewHidden, true)
 const sample = snapshot(reduce(emptyState(), { action: 'create_sample' }, now).state, now)
 assert.equal(sample.recentProjects.length <= 5, true)

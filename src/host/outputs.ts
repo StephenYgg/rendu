@@ -21,7 +21,7 @@ export interface OutputDoc {
   createdAt: string
 }
 
-interface FoundOutput {
+export interface FoundOutput {
   path: string
   filename: string
   kind: OutputKind
@@ -67,8 +67,39 @@ export async function syncNodeOutputs(
   return store.listOutputs(nodeId).map(toDoc)
 }
 
-export async function rememberOutput(store: RenduStore, nodeId: string, rawPath: string, title: string, sessionId = ''): Promise<OutputDoc> {
-  const found = await normalizeLocation(rawPath, process.cwd(), new Date().toISOString(), true)
+export function producedFromToolCall(name: string, argsText: string, createdAt: string): FoundOutput[] {
+  return refsFromToolCall(name, argsText, createdAt)
+}
+
+export function producedFromText(text: string, createdAt: string): FoundOutput[] {
+  return uniqueRefs(htmlAddresses(text), createdAt, false)
+}
+
+export async function associateProduced(store: RenduStore, sessionId: string, cwd: string, refs: FoundOutput[]): Promise<number> {
+  const nodeIds = linkedNodeIds(store, sessionId)
+  if (!nodeIds.length || !refs.length) return 0
+  let saved = 0
+  for (const nodeId of nodeIds) {
+    for (const ref of refs) {
+      const raw = ref.location === 'url' || isAbsolute(ref.path) ? ref.path : resolve(cwd || process.cwd(), ref.path)
+      try {
+        await rememberOutput(store, nodeId, raw, '', sessionId, ref.createdAt)
+        saved += 1
+      } catch {
+        // A failed or missing file is not an output yet.
+      }
+    }
+  }
+  return saved
+}
+
+export async function importSessionHistory(store: RenduStore, sessionId: string, cwd: string, events: unknown[]): Promise<number> {
+  const found = await refsFromSession(events, cwd || process.cwd())
+  return associateProduced(store, sessionId, cwd || process.cwd(), found)
+}
+
+export async function rememberOutput(store: RenduStore, nodeId: string, rawPath: string, title: string, sessionId = '', createdAt = new Date().toISOString()): Promise<OutputDoc> {
+  const found = await normalizeLocation(rawPath, process.cwd(), createdAt, true)
   if (!found) throw new Error('只能登记本地 HTML、Markdown、CSV，或一个 HTML 地址')
   if (found.location === 'file') await readOutput(found.path)
   const row = outputRow(nodeId, found, sessionId)
@@ -177,6 +208,16 @@ function uniqueRefs(rawPaths: string[], createdAt: string, allowPageUrl: boolean
     found.push({ path: raw, filename: basename(stripQuery(raw)), kind: kindOf(raw) as OutputKind, location: 'file', createdAt })
   }
   return found
+}
+
+export function storedOutputs(store: RenduStore, nodeId: string): OutputDoc[] {
+  return store.listOutputs(nodeId).map(toDoc)
+}
+
+function linkedNodeIds(store: RenduStore, sessionId: string): string[] {
+  return Object.values(store.read().nodes)
+    .filter((node) => node.sessions.some((link) => link.sessionId === sessionId))
+    .map((node) => node.id)
 }
 
 function outputRow(nodeId: string, found: FoundOutput, sessionId: string): OutputRow {

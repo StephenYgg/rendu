@@ -41,6 +41,8 @@ export interface Settings {
   maxDepth: number
   activeProjectId: string | null
   overviewHidden: boolean
+  idleRefreshSeconds: number
+  runningRefreshSeconds: number
 }
 
 export interface ProjectRecord {
@@ -144,6 +146,8 @@ function settingsRecord(input: Partial<Settings>): Settings {
     maxDepth: clampInt(input.maxDepth, RECOMMENDED_DEPTH, 8, MAX_DEPTH),
     activeProjectId: typeof input.activeProjectId === 'string' ? input.activeProjectId : null,
     overviewHidden: input.overviewHidden === true,
+    idleRefreshSeconds: clampInt(input.idleRefreshSeconds, 5, 300, 30),
+    runningRefreshSeconds: clampInt(input.runningRefreshSeconds, 5, 300, 10),
   }
 }
 
@@ -258,6 +262,7 @@ export function reduce(input: AtlasState, command: Record<string, unknown>, now 
   if (action === 'link_session') return linkSession(state, command, stamp)
   if (action === 'unlink_session') return unlinkSession(state, command, stamp)
   if (action === 'set_overview') return setOverview(state, command)
+  if (action === 'set_refresh') return setRefresh(state, command)
   throw new Error(`不支持的操作：${typeof action === 'string' ? action : '空'}`)
 }
 
@@ -287,6 +292,8 @@ export function snapshot(input: AtlasState, now = new Date()) {
       recentLimit: RECENT_PROJECTS,
       activeProjectId: activeId,
       overviewHidden: state.settings.overviewHidden,
+      idleRefreshSeconds: state.settings.idleRefreshSeconds,
+      runningRefreshSeconds: state.settings.runningRefreshSeconds,
       timeZone: TIME_ZONE,
       today,
     },
@@ -879,6 +886,18 @@ function unlinkSession(state: AtlasState, command: Record<string, unknown>, stam
 function setOverview(state: AtlasState, command: Record<string, unknown>) {
   state.settings.overviewHidden = command.hidden === true
   return { state, result: { overviewHidden: state.settings.overviewHidden } }
+}
+
+function setRefresh(state: AtlasState, command: Record<string, unknown>) {
+  if (command.idleSeconds != null) state.settings.idleRefreshSeconds = clampInt(command.idleSeconds, 5, 300, 30)
+  if (command.runningSeconds != null) state.settings.runningRefreshSeconds = clampInt(command.runningSeconds, 5, 300, 10)
+  return {
+    state,
+    result: {
+      idleRefreshSeconds: state.settings.idleRefreshSeconds,
+      runningRefreshSeconds: state.settings.runningRefreshSeconds,
+    },
+  }
 }
 
 function blankNode(input: Partial<NodeRecord> & Pick<NodeRecord, 'id' | 'projectId' | 'title' | 'createdAt' | 'updatedAt'>): NodeRecord {
