@@ -92,7 +92,13 @@ loader.load({
       zoomOut: '缩小',
       fit: '适配',
       refresh: '刷新',
-      panHint: '拖空白平移，滚轮缩放，拖卡片改位置，右键管理。',
+      panHint: '拖空白或滚轮平移，按住 ⌘/Ctrl 再滚轮才缩放。',
+      layout: '整理布局',
+      layoutTidy: '一键整理',
+      layoutTidyHint: '保持现在的左右，拉开重叠',
+      layoutRight: '向右展开',
+      layoutDown: '向下展开',
+      layoutRadial: '环形展开',
       rootBadge: '宗旨',
       children: '子节点',
       ancestors: '链路',
@@ -156,6 +162,16 @@ loader.load({
       rename: '改名',
       select: '打开',
       linkedSessions: '关联会话',
+      outputs: '产出文档',
+      outputsEmpty: '还没有登记的本地文档或 HTML 地址。',
+      outputsLoading: '正在查找产出…',
+      viewDoc: '查看',
+      maximize: '放到最大',
+      restore: '还原',
+      kind_html: 'HTML',
+      kind_markdown: 'Markdown',
+      kind_csv: 'CSV',
+      outputTruncated: '文件较大，只显示前面一部分。',
       openSession: '打开对话',
       unlink: '取消关联',
       noLinks: '还没有关联会话。交给 Agent 之后，对话会留在这里。',
@@ -216,7 +232,13 @@ loader.load({
       zoomOut: 'Zoom out',
       fit: 'Fit',
       refresh: 'Refresh',
-      panHint: 'Drag empty space to pan, scroll to zoom, drag a card to move it, right-click to manage.',
+      panHint: 'Drag empty space or scroll to pan. Hold ⌘ or Ctrl and scroll to zoom.',
+      layout: 'Tidy layout',
+      layoutTidy: 'Tidy in place',
+      layoutTidyHint: 'Keep the current sides and separate overlaps',
+      layoutRight: 'Flow to the right',
+      layoutDown: 'Flow downward',
+      layoutRadial: 'Spread in a ring',
       rootBadge: 'Vision',
       children: 'Children',
       ancestors: 'Chain',
@@ -280,6 +302,16 @@ loader.load({
       rename: 'Rename',
       select: 'Open',
       linkedSessions: 'Linked sessions',
+      outputs: 'Outputs',
+      outputsEmpty: 'No local document or HTML address has been saved yet.',
+      outputsLoading: 'Looking for outputs…',
+      viewDoc: 'View',
+      maximize: 'Maximize',
+      restore: 'Restore',
+      kind_html: 'HTML',
+      kind_markdown: 'Markdown',
+      kind_csv: 'CSV',
+      outputTruncated: 'The file is large. Only the first part is shown.',
       openSession: 'Open conversation',
       unlink: 'Unlink',
       noLinks: 'No linked session yet. A handoff keeps the conversation here.',
@@ -374,6 +406,18 @@ loader.load({
 .rd-dialog{width:min(460px,100%);max-height:calc(100% - 24px);overflow:auto;border:1px solid var(--dsw-alias-border-l2);border-top:2px solid var(--dsw-alias-brand-primary);border-radius:12px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 72%,var(--dsw-alias-bg-base));padding:16px;box-shadow:0 24px 64px color-mix(in srgb,var(--dsw-alias-bg-base) 72%,transparent)}
 .rd-dialog .rd-input,.rd-dialog .rd-textarea,.rd-dialog .rd-select{background:var(--dsw-alias-bg-base)}
 .rd-dialog .rd-button:not(.primary){background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base))}
+.rd-dialog.max{width:calc(100% - 24px);height:calc(100% - 24px);max-height:none;display:flex;flex-direction:column}
+.rd-fold{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;background:transparent;color:inherit;font:inherit;padding:8px 0;cursor:pointer}
+.rd-fold:hover{color:var(--dsw-alias-brand-primary)}
+.rd-preview{flex:1;min-height:240px;overflow:auto;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base)}
+.rd-preview iframe{width:100%;height:100%;min-height:420px;border:0;background:var(--dsw-alias-bg-base)}
+.rd-dialog.max .rd-preview,.rd-dialog.max .rd-preview iframe{min-height:0;height:100%}
+.rd-md{padding:16px 18px;line-height:1.65;font-size:14px}
+.rd-md h3{margin:14px 0 6px;font-size:16px}
+.rd-md pre{overflow:auto;padding:10px;border-radius:8px;background:var(--dsw-alias-bg-layer-1);font-size:12px;white-space:pre-wrap}
+.rd-table{width:100%;border-collapse:collapse;font-size:13px}
+.rd-table th,.rd-table td{border:1px solid var(--dsw-alias-border-l1);padding:6px 8px;text-align:left;vertical-align:top}
+.rd-table th{background:var(--dsw-alias-bg-layer-1)}
 .rd-manage{width:min(720px,100%);max-height:calc(100% - 24px)}
 .rd-dialog h2{margin:0;font-size:16px}
 .rd-dialog-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:12px}
@@ -386,9 +430,23 @@ loader.load({
 .rd-zoom{position:absolute;right:12px;top:12px;display:flex;align-items:center;gap:4px;padding:4px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-overlay)}
 .rd-zoom input[type=range]{width:92px;margin:0 2px;accent-color:var(--dsw-alias-brand-primary);cursor:ew-resize}
 .rd-zoom-label{min-width:40px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary)}
+.rd-split{position:relative;display:flex}
+.rd-split>.rd-icon-button{border-radius:8px 0 0 8px}
+.rd-caret{width:18px;min-height:32px;padding:0;border-radius:0 8px 8px 0;border-left:0}
+.rd-layout-menu{position:absolute;top:calc(100% + 6px);right:0;z-index:7;width:232px;padding:6px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 76%,var(--dsw-alias-bg-base));box-shadow:0 16px 40px color-mix(in srgb,var(--dsw-alias-bg-base) 68%,transparent)}
+.rd-layout-menu button{display:flex;flex-direction:column;align-items:flex-start;width:100%;border:0;background:transparent;color:inherit;font:inherit;text-align:left;padding:7px 8px;border-radius:7px;cursor:pointer}
+.rd-layout-menu button:hover{background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-layer-1))}
+.rd-layout-menu small{color:var(--dsw-alias-label-secondary);font-size:11px}
 @media(max-width:860px){.rd-body{flex-direction:column}.rd-aside{width:auto;height:46%;border-left:0;border-top:1px solid var(--dsw-alias-border-l1)}}
 `
 
+    function formatStamp(value?: string) {
+      if (!value) return ''
+      const date = new Date(value)
+      if (Number.isNaN(date.getTime())) return value
+      const pad = (part: number) => String(part).padStart(2, '0')
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+    }
     function text(translate: (key: string) => string, key: string, vars?: Record<string, string | number>) {
       let value = translate(key)
       if (vars) {
@@ -429,6 +487,13 @@ loader.load({
         h('path', { d: 'M8 10h4', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }),
         props.plus ? h('path', { d: 'M10 8v4', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }) : null)
     }
+    function LayoutIcon() {
+      return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true' },
+        h('rect', { x: 3, y: 4, width: 7, height: 5.5, rx: 1.2, stroke: 'currentColor', strokeWidth: 1.6 }),
+        h('rect', { x: 14, y: 4, width: 7, height: 5.5, rx: 1.2, stroke: 'currentColor', strokeWidth: 1.6 }),
+        h('rect', { x: 14, y: 14.5, width: 7, height: 5.5, rx: 1.2, stroke: 'currentColor', strokeWidth: 1.6 }),
+        h('path', { d: 'M10 6.8h4M17.5 9.5v5', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }))
+    }
     function FitIcon() {
       return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true' },
         h('path', { d: 'M9 4H5.5A1.5 1.5 0 0 0 4 5.5V9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }))
@@ -468,6 +533,7 @@ loader.load({
       const [view, setView] = React.useState({ panX: 48, panY: 36, zoom: 1 })
       const [draft, setDraft] = React.useState<{ id: string, x: number, y: number } | null>(null)
       const [panning, setPanning] = React.useState(false)
+      const [layoutOpen, setLayoutOpen] = React.useState(false)
       const pageRef = React.useRef<HTMLElement | null>(null)
       const viewportRef = React.useRef<HTMLElement | null>(null)
       const epoch = React.useRef(0)
@@ -585,13 +651,14 @@ loader.load({
         const node = viewportRef.current
         if (!node) return undefined
         const port = node
-        function onWheel(event: WheelEvent) {
-          event.preventDefault()
+        function zoomAt(event: WheelEvent) {
           const rect = port.getBoundingClientRect()
           const px = event.clientX - rect.left
           const py = event.clientY - rect.top
+          const pixels = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * port.clientHeight : event.deltaY
+          const factor = Math.abs(pixels) >= 50 ? (pixels > 0 ? 1 / 1.12 : 1.12) : Math.exp(-pixels * 0.01)
           setView((current) => {
-            const nextZoom = clamp(current.zoom * (event.deltaY < 0 ? 1.08 : 0.92), 0.4, 1.8)
+            const nextZoom = clamp(current.zoom * factor, 0.4, 1.8)
             const scale = current.zoom === 0 ? 1 : nextZoom / current.zoom
             const next = { zoom: nextZoom, panX: px - (px - current.panX) * scale, panY: py - (py - current.panY) * scale }
             viewRef.current = next
@@ -599,9 +666,41 @@ loader.load({
           })
           scheduleSaveView()
         }
+        function onWindowWheel(event: WheelEvent) {
+          if (!event.ctrlKey && !event.metaKey) return
+          if (!(event.target instanceof Node) || !port.contains(event.target)) return
+          event.preventDefault()
+          event.stopPropagation()
+          zoomAt(event)
+        }
+        function onWheel(event: WheelEvent) {
+          if (event.ctrlKey || event.metaKey) return
+          event.preventDefault()
+          const pixelsY = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * port.clientHeight : event.deltaY
+          const pixelsX = event.deltaMode === 1 ? event.deltaX * 16 : event.deltaMode === 2 ? event.deltaX * port.clientWidth : event.deltaX
+          setView((current) => {
+            const next = { ...current, panX: current.panX - pixelsX, panY: current.panY - pixelsY }
+            viewRef.current = next
+            return next
+          })
+          scheduleSaveView()
+        }
+        window.addEventListener('wheel', onWindowWheel, { capture: true, passive: false })
         port.addEventListener('wheel', onWheel, { passive: false })
-        return () => port.removeEventListener('wheel', onWheel)
+        return () => {
+          window.removeEventListener('wheel', onWindowWheel, { capture: true })
+          port.removeEventListener('wheel', onWheel)
+        }
       }, [projectId])
+      React.useEffect(() => {
+        if (!layoutOpen) return undefined
+        function close(event: PointerEvent) {
+          if (event.target instanceof Element && event.target.closest('.rd-split')) return
+          setLayoutOpen(false)
+        }
+        window.addEventListener('pointerdown', close)
+        return () => window.removeEventListener('pointerdown', close)
+      }, [layoutOpen])
       function viewportCenter() {
         const port = viewportRef.current
         return { cx: port ? port.clientWidth / 2 : 0, cy: port ? port.clientHeight / 2 : 0 }
@@ -643,18 +742,36 @@ loader.load({
         setView(next)
         scheduleSaveView()
       }
-      function fit() {
+      async function runLayout(mode: string) {
+        setLayoutOpen(false)
+        const value = await command('layout', { projectId, mode })
+        const laid = value.snapshot?.active?.nodes
+        if (laid?.length) fit(laid)
+      }
+      function fit(list: Array<{ x: number, y: number }> = nodes) {
         const port = viewportRef.current
-        if (!port || nodes.length === 0) return
-        const minX = Math.min(...nodes.map((node) => node.x))
-        const minY = Math.min(...nodes.map((node) => node.y))
-        const maxX = Math.max(...nodes.map((node) => node.x + CARD_W))
-        const maxY = Math.max(...nodes.map((node) => node.y + CARD_H))
+        if (!port || list.length === 0) return
+        const minX = Math.min(...list.map((node) => node.x))
+        const minY = Math.min(...list.map((node) => node.y))
+        const maxX = Math.max(...list.map((node) => node.x + CARD_W))
+        const maxY = Math.max(...list.map((node) => node.y + CARD_H))
         const zoom = clamp(Math.min((port.clientWidth - 72) / Math.max(1, maxX - minX), (port.clientHeight - 72) / Math.max(1, maxY - minY), 1), 0.4, 1.8)
         const next = { zoom, panX: (port.clientWidth - (maxX - minX) * zoom) / 2 - minX * zoom, panY: (port.clientHeight - (maxY - minY) * zoom) / 2 - minY * zoom }
         setView(next)
         viewRef.current = next
         scheduleSaveView()
+      }
+      async function openOutput(doc: OutputDoc) {
+        setBusy(true)
+        try {
+          const value = await api(`output?nodeId=${encodeURIComponent(selectedId || '')}&path=${encodeURIComponent(doc.path)}`, 'GET') as { kind?: string, name?: string, text?: string, truncated?: boolean, url?: string, location?: string }
+          setDialog({ type: 'preview', title: value.name || doc.filename || doc.title, kind: value.kind || doc.kind, text: value.text || '', url: value.url || (doc.location === 'url' ? doc.path : ''), truncated: value.truncated === true, maximized: false })
+          setError('')
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err))
+        } finally {
+          setBusy(false)
+        }
       }
       async function openAgent(nodeId: string) {
         setMenu(null)
@@ -777,7 +894,15 @@ loader.load({
               }),
               h('span', { className: 'rd-zoom-label' }, `${Math.round(view.zoom * 100)}%`),
               h('button', { className: 'rd-button rd-icon-button', type: 'button', 'aria-label': tr('zoomIn'), title: tr('zoomIn'), onClick: () => zoomBy(1.1) }, h(GlassIcon, { plus: true })),
-              h('button', { className: 'rd-button rd-icon-button', type: 'button', 'aria-label': tr('fit'), title: tr('fit'), onClick: fit }, h(FitIcon)))),
+              h('button', { className: 'rd-button rd-icon-button', type: 'button', 'aria-label': tr('fit'), title: tr('fit'), onClick: () => fit() }, h(FitIcon)),
+              h('div', { className: 'rd-split' },
+                h('button', { className: 'rd-button rd-icon-button', type: 'button', 'aria-label': tr('layoutTidy'), title: tr('layoutTidyHint'), disabled: busy, onClick: () => { void runLayout('tidy') } }, h(LayoutIcon)),
+                h('button', { className: 'rd-button rd-caret', type: 'button', 'aria-label': tr('layout'), 'aria-expanded': layoutOpen ? 'true' : 'false', onClick: () => setLayoutOpen(!layoutOpen) }, '▾'),
+                layoutOpen ? h('div', { className: 'rd-layout-menu', role: 'menu' },
+                  h('button', { type: 'button', onClick: () => { void runLayout('tidy') } }, tr('layoutTidy'), h('small', null, tr('layoutTidyHint'))),
+                  h('button', { type: 'button', onClick: () => { void runLayout('right') } }, tr('layoutRight')),
+                  h('button', { type: 'button', onClick: () => { void runLayout('down') } }, tr('layoutDown')),
+                  h('button', { type: 'button', onClick: () => { void runLayout('radial') } }, tr('layoutRadial'))) : null))),
           hidden ? null : h(Aside, {
             tr, active, selected, recent, currentId: projectId || '', busy, openSession,
             onSelectProject: (id: string) => { void command('select_project', { projectId: id }).catch(() => {}) },
@@ -789,6 +914,7 @@ loader.load({
             onAgent: () => selected && void openAgent(selected.id),
             onConfirm: () => selected && void command('set_status', { nodeId: selected.id, status: 'done' }).catch(() => {}),
             onUnlink: (linkId: string) => selected && setDialog({ type: 'confirm-unlink', nodeId: selected.id, linkId }),
+            onOpenOutput: (doc: OutputDoc) => { void openOutput(doc) },
             onSaveEvaluation: async (evaluation: string) => { await command('update_project', { projectId, evaluation }); setNotice(tr('saved')) },
           })) : null,
         menu ? h('div', { className: 'rd-menu-backdrop', onMouseDown: () => setMenu(null), onContextMenu: (event: MouseEvent) => { event.preventDefault(); setMenu(null) } },
@@ -823,6 +949,7 @@ loader.load({
           onDeleteProject: async (id?: string) => { await command('delete_project', { projectId: id || projectId }); setSelectedId(null); setDialog(null) },
           onUnlink: async (nodeId: string, linkId: string) => { await command('unlink_session', { nodeId, linkId }); setDialog(null) },
           onDispatch: dispatch,
+          onTogglePreview: () => setDialog((current: DialogState | null) => current?.type === 'preview' ? { ...current, maximized: !current.maximized } : current),
         }) : null)
     }
 
@@ -889,6 +1016,7 @@ loader.load({
                 h('button', { className: 'rd-link', type: 'button', onClick: () => openSession(link.sessionId) }, tr('openSession')),
                 ' ',
                 h('button', { className: 'rd-link', type: 'button', onClick: () => props.onUnlink(link.id) }, tr('unlink'))))),
+            h(OutputFold, { nodeId: selected.id, tr, onOpen: props.onOpenOutput }),
             linkError(selected),
             selected.status === 'confirm' ? h('p', { className: 'rd-muted' }, tr('confirmHint')) : null,
             h('div', { className: 'rd-actions' },
@@ -922,6 +1050,39 @@ loader.load({
       const end = port(child, sideToward(child, parent))
       const bend = Math.max(42, Math.hypot(end.x - start.x, end.y - start.y) / 3)
       return `M ${start.x} ${start.y} C ${start.x + start.nx * bend} ${start.y + start.ny * bend}, ${end.x + end.nx * bend} ${end.y + end.ny * bend}, ${end.x} ${end.y}`
+    }
+    function OutputFold(props: { nodeId: string, tr: Translate, onOpen: (doc: OutputDoc) => void }) {
+      const [open, setOpen] = React.useState(false)
+      const [docs, setDocs] = React.useState<OutputDoc[]>([])
+      const [loading, setLoading] = React.useState(false)
+      React.useEffect(() => {
+        let stop = false
+        async function load() {
+          setLoading(true)
+          try {
+            const value = await api(`outputs?nodeId=${encodeURIComponent(props.nodeId)}`, 'GET') as { outputs?: OutputDoc[] }
+            if (!stop) setDocs(value.outputs ?? [])
+          } catch {
+            if (!stop) setDocs([])
+          } finally {
+            if (!stop) setLoading(false)
+          }
+        }
+        void load()
+        const timer = window.setInterval(() => { if (open && !document.hidden) void load() }, 5000)
+        return () => { stop = true; window.clearInterval(timer) }
+      }, [props.nodeId, open])
+      return h('div', { className: 'rd-section' },
+        h('button', { className: 'rd-fold', type: 'button', 'aria-expanded': open ? 'true' : 'false', onClick: () => setOpen(!open) },
+          h('span', { className: 'rd-kicker' }, props.tr('outputs')),
+          h('span', null, `${open ? '▾' : '▸'} ${docs.length}`)),
+        open ? (loading && docs.length === 0
+          ? h('p', { className: 'rd-muted' }, props.tr('outputsLoading'))
+          : docs.length === 0
+            ? h('p', { className: 'rd-muted' }, props.tr('outputsEmpty'))
+            : docs.map((doc) => h('button', {
+              key: doc.id || doc.path, className: 'rd-alert', type: 'button', onClick: () => props.onOpen(doc),
+            }, h('span', null, doc.filename || doc.title), h('span', null, `${props.tr(`kind_${doc.kind}`)} · ${formatStamp(doc.createdAt)}`)))) : null)
     }
     function linkError(node: NodeView) {
       const failed = node.sessions.find((link) => link.error)
@@ -991,6 +1152,7 @@ loader.load({
       if (dialog.type === 'confirm-project') return h(ConfirmDialog, { tr, title: tr('confirmDeleteProject'), body: tr('cascadeHint'), busy: props.busy, onClose, onConfirm: () => props.onDeleteProject(dialog.projectId) })
       if (dialog.type === 'confirm-unlink') return h(ConfirmDialog, { tr, title: tr('unlink'), body: tr('confirmUnlink'), busy: props.busy, onClose, onConfirm: () => props.onUnlink(dialog.nodeId || '', dialog.linkId || '') })
       if (dialog.type === 'agent') return h(AgentDialog, { tr, sessions: props.sessions, groups: props.groups, busy: props.busy, onClose, onDispatch: (body: Record<string, unknown>) => props.onDispatch({ nodeId: dialog.nodeId, ...body }) })
+      if (dialog.type === 'preview') return h(PreviewDialog, { tr, dialog, onClose, onToggle: () => props.onTogglePreview?.() })
       return null
     }
     function FormDialog(props: { tr: Translate, title: string, fields: string[][], onClose: () => void, onSubmit: (fields: Record<string, string>) => Promise<unknown>, busy: boolean, extra?: unknown, submitLabel?: string }) {
@@ -1043,6 +1205,58 @@ loader.load({
           h('div', { className: 'rd-actions' },
             h('button', { className: 'rd-button', type: 'button', disabled: busy, onClick: () => props.onDispatch({ create: true, workspaceId, label: chosen?.title || '' }) }, tr('dispatchNew')),
             h('button', { className: 'rd-button', type: 'button', onClick: props.onClose }, tr('cancel')))))
+    }
+    function PreviewDialog(props: { tr: Translate, dialog: DialogState, onClose: () => void, onToggle: () => void }) {
+      const { tr, dialog } = props
+      const kind = dialog.kind || 'markdown'
+      return h('div', { className: 'rd-overlay', onMouseDown: (event: MouseEvent) => { if (event.target === event.currentTarget) props.onClose() } },
+        h('div', { className: dialog.maximized ? 'rd-dialog max' : 'rd-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': dialog.title || tr('outputs') },
+          h('div', { className: 'rd-dialog-head' },
+            h('h2', null, dialog.title || tr('outputs')),
+            h('div', { className: 'rd-actions' },
+              h('button', { className: 'rd-button', type: 'button', onClick: props.onToggle }, dialog.maximized ? tr('restore') : tr('maximize')),
+              h('button', { className: 'rd-button', type: 'button', onClick: props.onClose }, tr('close')))),
+          dialog.truncated ? h('p', { className: 'rd-muted' }, tr('outputTruncated')) : null,
+          h('div', { className: 'rd-preview' },
+            kind === 'html' && dialog.url ? h('iframe', { sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups', src: dialog.url, title: dialog.title || 'HTML' }) : null,
+            kind === 'html' && !dialog.url ? h('iframe', { sandbox: 'allow-scripts', srcDoc: dialog.text || '', title: dialog.title || 'HTML' }) : null,
+            kind === 'csv' ? h(CsvTable, { text: dialog.text || '' }) : null,
+            kind === 'markdown' ? h(MarkdownView, { text: dialog.text || '' }) : null)))
+    }
+    function MarkdownView(props: { text: string }) {
+      return h('div', { className: 'rd-md' }, props.text.split(/\n{2,}/).map((block, index) => {
+        if (block.startsWith('```')) return h('pre', { key: index }, block.replace(/^```[^\n]*\n?/, '').replace(/```$/, ''))
+        if (block.startsWith('# ')) return h('h3', { key: index }, block.replace(/^#+\s*/, ''))
+        return h('p', { key: index }, block)
+      }))
+    }
+    function CsvTable(props: { text: string }) {
+      const rows = parseCsv(props.text).slice(0, 200)
+      if (!rows.length) return h('p', { className: 'rd-muted' }, props.text)
+      const head = rows[0] ?? []
+      return h('table', { className: 'rd-table' },
+        h('thead', null, h('tr', null, head.map((cell, index) => h('th', { key: index }, cell)))),
+        h('tbody', null, rows.slice(1).map((row, index) => h('tr', { key: index }, row.map((cell, cellIndex) => h('td', { key: cellIndex }, cell))))))
+    }
+    function parseCsv(text: string): string[][] {
+      const rows: string[][] = []
+      let row: string[] = []
+      let cell = ''
+      let quoted = false
+      for (let index = 0; index < text.length; index += 1) {
+        const char = text[index] ?? ''
+        const next = text[index + 1]
+        if (quoted && char === '"' && next === '"') { cell += '"'; index += 1; continue }
+        if (char === '"') { quoted = !quoted; continue }
+        if (!quoted && char === ',') { row.push(cell); cell = ''; continue }
+        if (!quoted && (char === '\n' || char === '\r')) {
+          if (char === '\r' && next === '\n') index += 1
+          row.push(cell); rows.push(row); row = []; cell = ''; continue
+        }
+        cell += char
+      }
+      if (cell || row.length) { row.push(cell); rows.push(row) }
+      return rows.filter((item) => item.some((value) => value.trim()))
     }
     function Shell(props: { tr: Translate, title: string, onClose: () => void, children?: unknown }) {
       React.useEffect(() => {
@@ -1105,7 +1319,8 @@ interface Snapshot {
 }
 interface SessionRow { sessionId: string, title: string }
 interface GroupRow { id: string, title: string, path: string }
-interface DialogState { type: string, nodeId?: string, parentId?: string, side?: 'left' | 'right', dueAt?: string, projectId?: string, title?: string, linkId?: string }
+interface OutputDoc { id?: string, path: string, title: string, filename?: string, kind: string, location?: string, createdAt?: string }
+interface DialogState { type: string, nodeId?: string, parentId?: string, side?: 'left' | 'right', dueAt?: string, projectId?: string, title?: string, linkId?: string, kind?: string, text?: string, url?: string, truncated?: boolean, maximized?: boolean }
 interface AsideProps {
   tr: Translate
   active: NonNullable<Snapshot['active']>
@@ -1123,6 +1338,7 @@ interface AsideProps {
   onConfirm: () => void
   onAgent: () => void
   onUnlink: (linkId: string) => void
+  onOpenOutput: (doc: OutputDoc) => void
   onSaveEvaluation: (evaluation: string) => Promise<void>
 }
 interface DialogProps {
@@ -1141,4 +1357,5 @@ interface DialogProps {
   onDeleteProject: (projectId?: string) => Promise<void>
   onUnlink: (nodeId: string, linkId: string) => Promise<void>
   onDispatch: (body: Record<string, unknown>) => void
+  onTogglePreview?: () => void
 }

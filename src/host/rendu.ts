@@ -4,6 +4,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { brief, emptyState, normalizeState, reduce, snapshot, type AtlasState } from './model.js'
+import { readStoredOutput, rememberOutput, syncNodeOutputs } from './outputs.js'
 import { RenduStore } from './store.js'
 
 export const inject = ['webServer', 'tools', 'systemPrompt', 'sessionController']
@@ -12,12 +13,12 @@ export const ROUTE_PREFIX = '/api/rendu'
 const PROMPT = [
   'Rendu (`rendu`) stores a hierarchical vision. Each project has one root vision.',
   'Before executing, splitting, or judging a node, call action "brief" and use the core vision, the ancestor requirements, the sibling branches, and the linked sessions.',
-  'Write status, progress, notes, and deadlines back with update_node or set_status. Progress is your judgment. Reaching 100 marks the node 完成待确认; do not mark it done, a person confirms that. Link extra conversations with link_session. Do not delete the root vision node.',
+  'Write status, progress, notes, and deadlines back with update_node or set_status. Progress is your judgment. Reaching 100 marks the node 完成待确认; do not mark it done, a person confirms that. Link extra conversations with link_session. When you create an HTML, Markdown, or CSV file, or get an HTML address, call add_output with its path. The node link, filename, and creation time are stored in Rendu. Do not delete the root vision node.',
 ].join(' ')
 
 export function apply(ctx: RenduContext): void {
   const store = RenduStore.open()
-  const service = new RenduService(store, () => runningSessionIds(ctx))
+  const service = new RenduService(store, () => runningSessionIds(ctx), (sessionId) => readSession(ctx, sessionId))
   ctx.effect(() => {
     const disposeRoute = ctx.webServer.register({
       kind: 'prefix',
@@ -51,6 +52,9 @@ interface RenduContext {
     prompt(request: { requestId: string, sessionId: string, mode: 'queue', content: Array<{ type: 'text', text: string }>, clientTimeZone?: string }, signal: AbortSignal): Promise<unknown>
     rename(request: { sessionId: string, title: string }): Promise<unknown>
     list(request: Record<string, never>, signal: AbortSignal): Promise<{ items?: SessionSummary[] }>
+    inspect?(sessionId: string, signal?: AbortSignal): Promise<{ meta?: { cwd?: string }, events?: unknown[] }>
+    follow?(request: { address: { kind: 'session', sessionId: string }, maxMessages?: number }, signal: AbortSignal): AsyncIterable<{ type?: string, header?: { cwd?: string }, records?: Array<{ event?: unknown }>, cursor?: number, hasMore?: boolean }>
+    page?(request: { address: { kind: 'session', sessionId: string }, throughSeq: number, beforeSeq?: number, maxMessages?: number }, signal: AbortSignal): Promise<{ records?: Array<{ event?: unknown }>, hasMore?: boolean }>
   }
   logger?: { warn?: (message: string) => void }
 }
@@ -85,7 +89,11 @@ interface WorkspaceRecord {
 class RenduService {
   private chain: Promise<void> = Promise.resolve()
 
-  constructor(private readonly store: RenduStore, private readonly runningIds: () => Promise<Set<string>>) {}
+  constructor(
+    private readonly store: RenduStore,
+    private readonly runningIds: () => Promise<Set<string>>,
+    private readonly sessionReader: (sessionId: string) => Promise<{ cwd?: string, events: unknown[] }>,
+  ) {}
 
   run<T>(fn: () => Promise<T>): Promise<T> {
     const job = this.chain.then(fn)
@@ -95,6 +103,23 @@ class RenduService {
 
   snapshot() {
     return this.run(async () => this.present())
+  }
+
+  outputs(nodeId: string) {
+    return this.run(async () => {
+      const state = this.store.read()
+      const node = state.nodes[nodeId]
+      if (!node) throw new Error('找不到这个节点')
+      return syncNodeOutputs(this.store, nodeId, node.sessions.map((link) => link.sessionId), this.sessionReader)
+    })
+  }
+
+  registerOutput(nodeId: string, filePath: string, title: string) {
+    return this.run(async () => {
+      const state = this.store.read()
+      if (!state.nodes[nodeId]) throw new Error('找不到这个节点')
+      return rememberOutput(this.store, nodeId, filePath, title)
+    })
   }
 
   textBrief(nodeId: string) {
@@ -144,7 +169,7 @@ function toolDefinition(service: RenduService) {
       properties: {
         action: {
           type: 'string',
-          enum: ['list', 'brief', 'create_project', 'create_node', 'update_node', 'set_status', 'delete_node', 'evaluate', 'link_session', 'unlink_session'],
+          enum: ['list', 'brief', 'create_project', 'create_node', 'update_node', 'set_status', 'delete_node', 'evaluate', 'link_session', 'unlink_session', 'add_output', 'list_outputs'],
           description: 'list 列出项目；brief 读取一个节点的宗旨、链路、兄弟分支和关联会话；其余为写入。',
         },
         projectId: { type: 'string', description: '项目 id。evaluate 时必填。' },
@@ -166,6 +191,7 @@ function toolDefinition(service: RenduService) {
         sessionId: { type: 'string', description: '要关联的会话 id。link_session 时必填。' },
         linkId: { type: 'string', description: '关联 id。unlink_session 时必填。' },
         label: { type: 'string', description: '会话显示名。' },
+        path: { type: 'string', description: '产出位置。add_output 时必填。可以是本地 HTML、Markdown、CSV 路径，或一个 http(s) HTML 地址。关联、文件名和创建时间会写入任督的数据库。' },
       },
     },
     output: {
@@ -196,6 +222,14 @@ async function runTool(service: RenduService, args: Record<string, unknown>) {
     return { ok: true, text, projects: view.projects }
   }
   if (action === 'brief') return { ok: true, text: await service.textBrief(String(args.nodeId ?? '')) }
+  if (action === 'list_outputs') {
+    const outputs = await service.outputs(String(args.nodeId ?? ''))
+    return { ok: true, text: outputs.length ? outputs.map((doc) => `${doc.kind}｜${doc.title}｜${doc.path}`).join('\n') : '这个节点还没有 HTML、Markdown 或 CSV 产出。', outputs }
+  }
+  if (action === 'add_output') {
+    const saved = await service.registerOutput(String(args.nodeId ?? ''), String(args.path ?? ''), typeof args.title === 'string' ? args.title : '')
+    return { ok: true, text: `已登记产出：${saved.title}`, result: saved }
+  }
   if (action === 'evaluate') {
     const saved = await service.mutate({ action: 'update_project', projectId: args.projectId, evaluation: args.evaluation ?? '' })
     return { ok: true, text: '项目评价已更新。', result: saved.result }
@@ -225,6 +259,17 @@ async function handle(ctx: RenduContext, service: RenduService, req: IncomingReq
     if (method === 'GET' && (action === '' || action === 'state')) return sendJson(res, 200, await service.snapshot())
     if (method === 'GET' && action === 'sessions') return sendJson(res, 200, { sessions: await listSessions(ctx) })
     if (method === 'GET' && action === 'workspaces') return sendJson(res, 200, { workspaces: listWorkspaces(ctx) })
+    if (method === 'GET' && action === 'outputs') {
+      return sendJson(res, 200, { outputs: await service.outputs(url.searchParams.get('nodeId') ?? '') })
+    }
+    if (method === 'GET' && action === 'output') {
+      const nodeId = url.searchParams.get('nodeId') ?? ''
+      const filePath = url.searchParams.get('path') ?? ''
+      const allowed = await service.outputs(nodeId)
+      const doc = allowed.find((item) => item.path === filePath)
+      if (!doc) throw new Error('这个节点没有这份产出')
+      return sendJson(res, 200, await readStoredOutput(doc))
+    }
     if (method === 'POST' && action === 'command') {
       const body = await readJson(req)
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('请求格式不正确')
@@ -256,7 +301,7 @@ async function dispatchNode(ctx: RenduContext, service: RenduService, body: Reco
   const prompt = [
     `你被指定执行任督二脉节点「${title}」。`,
     '先根据下面的简报理解核心宗旨、上级要求、兄弟分支和已经关联的会话，再决定怎么做。',
-    '需要刷新时调用 rendu，action 用 brief。进度由你判断并用 update_node 写入。到 100 会变成完成待确认，不要直接标成完成。',
+    '需要刷新时调用 rendu，action 用 brief。进度由你判断并用 update_node 写入。到 100 会变成完成待确认，不要直接标成完成。写出 HTML、Markdown、CSV，或得到 HTML 地址后，调用 add_output 登记。',
     '不要偏离宗旨，也不要改掉其他链路正在做的事，除非它们和宗旨冲突。',
     '',
     text,
@@ -316,6 +361,56 @@ async function createGroupedSession(ctx: RenduContext, workspaceId: unknown) {
     throw new Error('会话已创建，但没有进入所选分组。分组跟着会话的工作目录走。')
   }
   return { sessionId, label: String(workspace.title || '新会话') }
+}
+
+async function readSession(ctx: RenduContext, sessionId: string): Promise<{ cwd?: string, events: unknown[] }> {
+  const controller = ctx.sessionController
+  if (controller.follow) {
+    const abort = new AbortController()
+    const timer = setTimeout(() => abort.abort(), 6000)
+    try {
+      const iterator = controller.follow({ address: { kind: 'session', sessionId }, maxMessages: 120 }, abort.signal)[Symbol.asyncIterator]()
+      const first = await iterator.next()
+      const frame = first.value
+      if (frame?.type === 'snapshot') {
+        const events = (frame.records ?? []).map((record: { event?: unknown }) => record.event).filter((event: unknown) => event != null)
+        let hasMore = frame.hasMore === true
+        let guard = 0
+        while (hasMore && controller.page && guard < 4) {
+          guard += 1
+          const oldest = events.reduce((min: number, event: unknown) => {
+            const seq = eventSeq(event)
+            return seq != null && seq < min ? seq : min
+          }, Number.POSITIVE_INFINITY)
+          if (!Number.isFinite(oldest)) break
+          const page = await controller.page({
+            address: { kind: 'session', sessionId },
+            throughSeq: frame.cursor ?? oldest,
+            beforeSeq: oldest,
+            maxMessages: 120,
+          }, AbortSignal.timeout(6000))
+          const older = (page.records ?? []).map((record: { event?: unknown }) => record.event).filter((event: unknown) => event != null)
+          if (!older.length) break
+          events.unshift(...older)
+          hasMore = page.hasMore === true
+        }
+        return { cwd: frame.header?.cwd, events }
+      }
+    } catch {
+      // A cold session can still be read through inspect.
+    } finally {
+      clearTimeout(timer)
+      abort.abort()
+    }
+  }
+  const inspection = await controller.inspect?.(sessionId, AbortSignal.timeout(8000))
+  return { cwd: inspection?.meta?.cwd, events: inspection?.events ?? [] }
+}
+
+function eventSeq(event: unknown): number | null {
+  if (!event || typeof event !== 'object') return null
+  const seq = (event as { seq?: unknown }).seq
+  return typeof seq === 'number' ? seq : null
 }
 
 async function runningSessionIds(ctx: RenduContext): Promise<Set<string>> {

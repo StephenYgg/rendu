@@ -32,9 +32,39 @@ const humanDone = reduce(agentProgress.state, { action: 'set_status', nodeId: ri
 assert.equal(humanDone.state.nodes[right.result.nodeId].status, 'done')
 const leftNode = reduce(state, { action: 'create_node', parentId: rootId, title: '左侧', side: 'left' }, now)
 assert.ok(leftNode.state.nodes[leftNode.result.nodeId].x < state.nodes[rootId].x)
+const tidy = reduce(leftNode.state, { action: 'layout', mode: 'tidy' }, now)
+const tidyRoot = tidy.state.nodes[rootId]
+const tidyLeft = tidy.state.nodes[leftNode.result.nodeId]
+assert.ok(tidyLeft.x + 236 <= tidyRoot.x, 'tidy keeps a left branch on the left')
+assert.equal(cardsOverlap(tidy.state), false)
+const overlapped = reduce(leftNode.state, { action: 'move_node', nodeId: leftNode.result.nodeId, x: leftNode.state.nodes[rootId].x, y: leftNode.state.nodes[rootId].y }, now)
+assert.equal(cardsOverlap(reduce(overlapped.state, { action: 'layout', mode: 'tidy' }, now).state), false)
+const flowed = reduce(overlapped.state, { action: 'layout', mode: 'right' }, now)
+assert.ok(flowed.state.nodes[leftNode.result.nodeId].x > flowed.state.nodes[rootId].x)
+const down = reduce(overlapped.state, { action: 'layout', mode: 'down' }, now)
+assert.ok(down.state.nodes[leftNode.result.nodeId].y > down.state.nodes[rootId].y)
+assert.equal(cardsOverlap(down.state), false)
+const withGrand = reduce(leftNode.state, { action: 'create_node', parentId: leftNode.result.nodeId, title: '外圈' }, now)
+const radial = reduce(withGrand.state, { action: 'layout', mode: 'radial' }, now)
+assert.equal(cardsOverlap(radial.state), false)
+const ringRoot = radial.state.nodes[rootId]
+const ringChild = radial.state.nodes[leftNode.result.nodeId]
+assert.ok(Math.hypot((ringChild.x + 118) - (ringRoot.x + 118), (ringChild.y + 74) - (ringRoot.y + 74)) > 240)
 const hidden = reduce(state, { action: 'set_overview', hidden: true }, now)
 assert.equal(hidden.state.settings.overviewHidden, true)
 const sample = snapshot(reduce(emptyState(), { action: 'create_sample' }, now).state, now)
 assert.equal(sample.recentProjects.length <= 5, true)
 assert.equal(sample.active.overview.alerts.some((alert) => alert.state === 'overdue'), true)
 console.log('rendu model ok')
+
+function cardsOverlap(state) {
+  const cards = Object.values(state.nodes)
+  for (let i = 0; i < cards.length; i += 1) {
+    for (let j = i + 1; j < cards.length; j += 1) {
+      const a = cards[i]
+      const b = cards[j]
+      if (a.x < b.x + 236 && a.x + 236 > b.x && a.y < b.y + 148 && a.y + 148 > b.y) return true
+    }
+  }
+  return false
+}

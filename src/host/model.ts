@@ -254,6 +254,7 @@ export function reduce(input: AtlasState, command: Record<string, unknown>, now 
   if (action === 'update_node' || action === 'set_status') return updateNode(state, command, stamp)
   if (action === 'delete_node') return deleteNode(state, command, stamp)
   if (action === 'move_node') return moveNode(state, command, stamp)
+  if (action === 'layout') return layoutNodes(state, command, stamp)
   if (action === 'link_session') return linkSession(state, command, stamp)
   if (action === 'unlink_session') return unlinkSession(state, command, stamp)
   if (action === 'set_overview') return setOverview(state, command)
@@ -616,6 +617,235 @@ function moveNode(state: AtlasState, command: Record<string, unknown>, stamp: st
   node.y = clamp(command.y, -4000, 12000)
   node.updatedAt = stamp
   return { state, result: { nodeId: node.id, x: node.x, y: node.y } }
+}
+
+const CARD_W = 236
+const CARD_H = 148
+const GAP_X = 88
+const GAP_Y = 36
+
+function layoutNodes(state: AtlasState, command: Record<string, unknown>, stamp: string) {
+  const projectId = typeof command.projectId === 'string' && command.projectId
+    ? command.projectId
+    : state.settings.activeProjectId
+  const project = mustProject(state, projectId)
+  const mode = command.mode === 'right' || command.mode === 'down' || command.mode === 'radial' ? command.mode : 'tidy'
+  const nodes = projectNodes(state, project.id)
+  const positions = arrangeNodes(nodes, mode)
+  for (const node of nodes) {
+    const pos = positions.get(node.id)
+    if (!pos) continue
+    node.x = clamp(Math.round(pos.x), -4000, 12000)
+    node.y = clamp(Math.round(pos.y), -4000, 12000)
+    node.updatedAt = stamp
+  }
+  touchProject(state, project.id, stamp)
+  return { state, result: { projectId: project.id, mode, count: nodes.length } }
+}
+
+function arrangeNodes(nodes: NodeRecord[], mode: 'tidy' | 'right' | 'down' | 'radial'): Map<string, { x: number, y: number }> {
+  const known = new Set(nodes.map((node) => node.id))
+  const children = new Map<string, NodeRecord[]>()
+  for (const node of nodes) {
+    if (!node.parentId || !known.has(node.parentId)) continue
+    const list = children.get(node.parentId) ?? []
+    list.push(node)
+    children.set(node.parentId, list)
+  }
+  for (const list of children.values()) {
+    list.sort((a, b) => mode === 'down' ? a.x - b.x || a.order - b.order : a.y - b.y || a.order - b.order)
+  }
+  const roots = nodes
+    .filter((node) => !node.parentId || !known.has(node.parentId))
+    .sort((a, b) => a.y - b.y || a.x - b.x)
+  const positions = new Map<string, { x: number, y: number }>()
+  if (mode === 'radial') return arrangeRadial(roots, children)
+  let top = 48
+  for (const root of roots) {
+    if (mode === 'down') {
+      placeDown(root, 72, top, children, positions)
+      top += downSpan(root, children) + 96
+    } else if (mode === 'right') {
+      placeOutward(root, 72, top, 'right', children, positions)
+      top += outwardSpan(root, children) + 96
+    } else {
+      placeTidy(root, 480, top, children, positions)
+      top += tidySpan(root, children) + 96
+    }
+  }
+  return positions
+}
+
+function placeTidy(
+  node: NodeRecord,
+  centerX: number,
+  top: number,
+  children: Map<string, NodeRecord[]>,
+  positions: Map<string, { x: number, y: number }>,
+) {
+  const { left, right } = splitSides(node, children.get(node.id) ?? [])
+  const leftSpan = listSpan(left, children)
+  const rightSpan = listSpan(right, children)
+  const height = Math.max(CARD_H, leftSpan, rightSpan)
+  positions.set(node.id, { x: centerX - CARD_W / 2, y: top + (height - CARD_H) / 2 })
+  placeOutwardList(left, centerX - CARD_W / 2 - GAP_X - CARD_W, top + (height - leftSpan) / 2, 'left', children, positions)
+  placeOutwardList(right, centerX + CARD_W / 2 + GAP_X, top + (height - rightSpan) / 2, 'right', children, positions)
+}
+
+function placeOutwardList(
+  list: NodeRecord[],
+  x: number,
+  top: number,
+  direction: 'left' | 'right',
+  children: Map<string, NodeRecord[]>,
+  positions: Map<string, { x: number, y: number }>,
+) {
+  let cursor = top
+  for (const child of list) {
+    const span = outwardSpan(child, children)
+    placeOutward(child, x, cursor, direction, children, positions)
+    cursor += span + GAP_Y
+  }
+}
+
+function placeOutward(
+  node: NodeRecord,
+  x: number,
+  top: number,
+  direction: 'left' | 'right',
+  children: Map<string, NodeRecord[]>,
+  positions: Map<string, { x: number, y: number }>,
+) {
+  const list = children.get(node.id) ?? []
+  const span = outwardSpan(node, children)
+  positions.set(node.id, { x, y: top + (span - CARD_H) / 2 })
+  const childX = direction === 'right' ? x + CARD_W + GAP_X : x - GAP_X - CARD_W
+  placeOutwardList(list, childX, top, direction, children, positions)
+}
+
+function placeDown(
+  node: NodeRecord,
+  left: number,
+  y: number,
+  children: Map<string, NodeRecord[]>,
+  positions: Map<string, { x: number, y: number }>,
+) {
+  const list = children.get(node.id) ?? []
+  const width = downSpan(node, children)
+  positions.set(node.id, { x: left + (width - CARD_W) / 2, y })
+  let cursor = left
+  for (const child of list) {
+    const childWidth = downSpan(child, children)
+    placeDown(child, cursor, y + CARD_H + GAP_Y, children, positions)
+    cursor += childWidth + GAP_X
+  }
+}
+
+function splitSides(node: NodeRecord, list: NodeRecord[]) {
+  const left: NodeRecord[] = []
+  const right: NodeRecord[] = []
+  for (const child of list) {
+    if (child.x + CARD_W / 2 < node.x + CARD_W / 2) left.push(child)
+    else right.push(child)
+  }
+  return { left, right }
+}
+
+function outwardSpan(node: NodeRecord, children: Map<string, NodeRecord[]>): number {
+  return listSpan(children.get(node.id) ?? [], children)
+}
+
+function listSpan(list: NodeRecord[], children: Map<string, NodeRecord[]>): number {
+  if (list.length === 0) return CARD_H
+  return list.reduce((sum, child) => sum + outwardSpan(child, children), 0) + GAP_Y * (list.length - 1)
+}
+
+function tidySpan(node: NodeRecord, children: Map<string, NodeRecord[]>): number {
+  const { left, right } = splitSides(node, children.get(node.id) ?? [])
+  return Math.max(CARD_H, listSpan(left, children), listSpan(right, children))
+}
+
+function downSpan(node: NodeRecord, children: Map<string, NodeRecord[]>): number {
+  const list = children.get(node.id) ?? []
+  if (list.length === 0) return CARD_W
+  return list.reduce((sum, child) => sum + downSpan(child, children), 0) + GAP_X * (list.length - 1)
+}
+
+function arrangeRadial(roots: NodeRecord[], children: Map<string, NodeRecord[]>): Map<string, { x: number, y: number }> {
+  const positions = new Map<string, { x: number, y: number }>()
+  let cursor = 80
+  for (const root of roots) {
+    const local = layoutRing(root, children)
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    for (const pos of local.values()) {
+      minX = Math.min(minX, pos.x)
+      minY = Math.min(minY, pos.y)
+      maxX = Math.max(maxX, pos.x)
+    }
+    if (!Number.isFinite(minX)) continue
+    const dx = cursor - minX
+    const dy = 80 - minY
+    for (const [id, pos] of local) positions.set(id, { x: pos.x + dx, y: pos.y + dy })
+    cursor += maxX - minX + CARD_W + 160
+  }
+  return positions
+}
+
+function layoutRing(root: NodeRecord, children: Map<string, NodeRecord[]>): Map<string, { x: number, y: number }> {
+  const angles = new Map<string, number>()
+  const depth = new Map<string, number>()
+  const leaves = new Map<string, number>()
+  function leafCount(id: string): number {
+    const cached = leaves.get(id)
+    if (cached != null) return cached
+    const kids = children.get(id) ?? []
+    const count = kids.length === 0 ? 1 : kids.reduce((sum, kid) => sum + leafCount(kid.id), 0)
+    leaves.set(id, count)
+    return count
+  }
+  function assign(id: string, start: number, end: number, level: number) {
+    depth.set(id, level)
+    angles.set(id, (start + end) / 2)
+    const kids = children.get(id) ?? []
+    if (kids.length === 0) return
+    const total = kids.reduce((sum, kid) => sum + leafCount(kid.id), 0)
+    let cursor = start
+    for (const kid of kids) {
+      const share = (end - start) * (leafCount(kid.id) / total)
+      assign(kid.id, cursor, cursor + share, level + 1)
+      cursor += share
+    }
+  }
+  assign(root.id, -Math.PI / 2, Math.PI * 1.5, 0)
+  const maxDepth = Math.max(...depth.values())
+  const radiusAt = [0]
+  for (let level = 1; level <= maxDepth; level += 1) {
+    const ring = [...depth.entries()].filter((entry) => entry[1] === level).map((entry) => angles.get(entry[0]) ?? 0).sort((a, b) => a - b)
+    let minGap = Math.PI * 2
+    if (ring.length > 1) {
+      minGap = Infinity
+      for (let index = 0; index < ring.length; index += 1) {
+        const current = ring[index] ?? 0
+        const next = index + 1 < ring.length ? ring[index + 1] ?? 0 : (ring[0] ?? 0) + Math.PI * 2
+        minGap = Math.min(minGap, next - current)
+      }
+    }
+    const separation = Math.hypot(CARD_W, CARD_H) + 28
+    const chord = minGap >= Math.PI ? 0 : (separation / 2) / Math.sin(minGap / 2)
+    radiusAt[level] = Math.max((radiusAt[level - 1] ?? 0) + separation, chord)
+  }
+  const positions = new Map<string, { x: number, y: number }>()
+  for (const [id, level] of depth) {
+    const radius = radiusAt[level] ?? 0
+    const angle = angles.get(id) ?? 0
+    positions.set(id, {
+      x: Math.cos(angle) * radius - CARD_W / 2,
+      y: Math.sin(angle) * radius - CARD_H / 2,
+    })
+  }
+  return positions
 }
 
 function linkSession(state: AtlasState, command: Record<string, unknown>, stamp: string) {

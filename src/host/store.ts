@@ -45,6 +45,14 @@ CREATE TABLE IF NOT EXISTS node_sessions (
   created_at TEXT NOT NULL,
   error TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS outputs (
+  id TEXT PRIMARY KEY,
+  node_id TEXT NOT NULL,
+  path TEXT NOT NULL,
+  title TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 `
 
 export function defaultDatabasePath(): string {
@@ -59,6 +67,7 @@ export class RenduStore {
     const db = new DatabaseSync(path)
     db.exec('PRAGMA journal_mode = WAL')
     db.exec(SCHEMA)
+    ensureOutputColumns(db)
     return new RenduStore(db)
   }
 
@@ -197,6 +206,26 @@ export class RenduStore {
     for (const link of node.sessions) insert.run(link.id, node.id, link.sessionId, link.label, link.createdAt, link.error)
   }
 
+  listOutputs(nodeId: string): OutputRow[] {
+    return this.db.prepare('SELECT * FROM outputs WHERE node_id = ? ORDER BY created_at DESC').all(nodeId) as OutputRow[]
+  }
+
+  addOutput(row: OutputRow): OutputRow {
+    const existing = this.db.prepare('SELECT * FROM outputs WHERE node_id = ? AND path = ?').get(row.node_id, row.path) as OutputRow | undefined
+    if (existing) {
+      if (!existing.session_id && row.session_id) {
+        this.db.prepare('UPDATE outputs SET session_id = ? WHERE id = ?').run(row.session_id, existing.id)
+        existing.session_id = row.session_id
+      }
+      return existing
+    }
+    this.db.prepare(`
+      INSERT INTO outputs (id, node_id, path, title, kind, created_at, filename, session_id, location)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(row.id, row.node_id, row.path, row.title, row.kind, row.created_at, row.filename, row.session_id, row.location)
+    return row
+  }
+
   private transaction(work: () => void): void {
     this.db.exec('BEGIN')
     try {
@@ -206,6 +235,30 @@ export class RenduStore {
       this.db.exec('ROLLBACK')
       throw error
     }
+  }
+}
+
+export interface OutputRow {
+  id: string
+  node_id: string
+  path: string
+  title: string
+  kind: string
+  created_at: string
+  filename: string
+  session_id: string
+  location: string
+}
+
+function ensureOutputColumns(db: DatabaseSync): void {
+  const names = new Set((db.prepare('PRAGMA table_info(outputs)').all() as Array<{ name: string }>).map((column) => column.name))
+  if (!names.has('filename')) db.exec("ALTER TABLE outputs ADD COLUMN filename TEXT NOT NULL DEFAULT ''")
+  if (!names.has('session_id')) db.exec("ALTER TABLE outputs ADD COLUMN session_id TEXT NOT NULL DEFAULT ''")
+  if (!names.has('location')) db.exec("ALTER TABLE outputs ADD COLUMN location TEXT NOT NULL DEFAULT 'file'")
+  try {
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS outputs_node_path ON outputs(node_id, path)')
+  } catch {
+    // A legacy duplicate must not stop the database from opening.
   }
 }
 
