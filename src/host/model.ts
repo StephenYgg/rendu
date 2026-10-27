@@ -43,6 +43,7 @@ export interface Settings {
   overviewHidden: boolean
   idleRefreshSeconds: number
   runningRefreshSeconds: number
+  nodeStyle: 'classic' | 'ink' | 'spine' | 'scale' | 'cycle' | 'cycle2' | 'karma'
 }
 
 export interface ProjectRecord {
@@ -148,6 +149,7 @@ function settingsRecord(input: Partial<Settings>): Settings {
     overviewHidden: input.overviewHidden === true,
     idleRefreshSeconds: clampInt(input.idleRefreshSeconds, 5, 300, 30),
     runningRefreshSeconds: clampInt(input.runningRefreshSeconds, 5, 300, 10),
+    nodeStyle: nodeStyleOf(input.nodeStyle),
   }
 }
 
@@ -294,6 +296,7 @@ export function snapshot(input: AtlasState, now = new Date()) {
       overviewHidden: state.settings.overviewHidden,
       idleRefreshSeconds: state.settings.idleRefreshSeconds,
       runningRefreshSeconds: state.settings.runningRefreshSeconds,
+      nodeStyle: state.settings.nodeStyle,
       timeZone: TIME_ZONE,
       today,
     },
@@ -891,13 +894,19 @@ function setOverview(state: AtlasState, command: Record<string, unknown>) {
 function setRefresh(state: AtlasState, command: Record<string, unknown>) {
   if (command.idleSeconds != null) state.settings.idleRefreshSeconds = clampInt(command.idleSeconds, 5, 300, 30)
   if (command.runningSeconds != null) state.settings.runningRefreshSeconds = clampInt(command.runningSeconds, 5, 300, 10)
+  if (command.nodeStyle != null) state.settings.nodeStyle = nodeStyleOf(command.nodeStyle)
   return {
     state,
     result: {
       idleRefreshSeconds: state.settings.idleRefreshSeconds,
       runningRefreshSeconds: state.settings.runningRefreshSeconds,
+      nodeStyle: state.settings.nodeStyle,
     },
   }
+}
+
+function nodeStyleOf(value: unknown): Settings['nodeStyle'] {
+  return value === 'ink' || value === 'spine' || value === 'scale' || value === 'cycle' || value === 'cycle2' || value === 'karma' ? value : 'classic'
 }
 
 function blankNode(input: Partial<NodeRecord> & Pick<NodeRecord, 'id' | 'projectId' | 'title' | 'createdAt' | 'updatedAt'>): NodeRecord {

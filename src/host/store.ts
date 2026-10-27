@@ -88,6 +88,7 @@ export class RenduStore {
       if (row.key === 'overviewHidden') settings.overviewHidden = row.value === '1'
       if (row.key === 'idleRefreshSeconds') settings.idleRefreshSeconds = Number(row.value)
       if (row.key === 'runningRefreshSeconds') settings.runningRefreshSeconds = Number(row.value)
+      if (row.key === 'nodeStyle' && (row.value === 'ink' || row.value === 'spine' || row.value === 'scale' || row.value === 'cycle' || row.value === 'cycle2' || row.value === 'karma')) settings.nodeStyle = row.value
     }
     const projects: Record<string, ProjectRecord> = {}
     for (const row of this.db.prepare('SELECT * FROM projects').all() as Array<Record<string, unknown>>) {
@@ -170,6 +171,7 @@ export class RenduStore {
     put.run('overviewHidden', settings.overviewHidden ? '1' : '0')
     put.run('idleRefreshSeconds', String(settings.idleRefreshSeconds))
     put.run('runningRefreshSeconds', String(settings.runningRefreshSeconds))
+    put.run('nodeStyle', settings.nodeStyle)
   }
 
   private putProject(project: ProjectRecord): void {

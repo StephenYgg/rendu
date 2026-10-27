@@ -6,3 +6,5 @@ client.js
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+assets/*.jpg
+assets/*.png

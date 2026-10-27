@@ -94,7 +94,16 @@ loader.load({
       refresh: '刷新',
       panHint: '拖空白或滚轮平移，按住 ⌘/Ctrl 再滚轮才缩放。',
       headerGesture: '拖动移动窗口，双击放大或还原',
-      settings: '刷新设置',
+      settings: '设置',
+      nodeStyle: '节点样式',
+      styleClassic: '经典',
+      styleInk: '墨阶',
+      styleSpine: '脊线',
+      styleScale: '刻度',
+      styleCycle: '轮回',
+      styleCycle2: '轮回二',
+      styleKarma: '因果',
+      styleHint: '缩小后仍要分出层级时，换墨阶、脊线、刻度、轮回或因果。轮回是宣纸水墨，因果是彩线。',
       idleRefresh: '空闲间隔（秒）',
       runningRefresh: 'Agent 运行中间隔（秒）',
       refreshHint: '切到别的面板后停止刷新，重新打开时立刻刷新一次。产出在会话写出时写入数据库，不再定时扫描。',
@@ -239,7 +248,16 @@ loader.load({
       refresh: 'Refresh',
       panHint: 'Drag empty space or scroll to pan. Hold ⌘ or Ctrl and scroll to zoom.',
       headerGesture: 'Drag to move the window. Double-click to zoom or restore.',
-      settings: 'Refresh settings',
+      settings: 'Settings',
+      nodeStyle: 'Node style',
+      styleClassic: 'Classic',
+      styleInk: 'Ink',
+      styleSpine: 'Spine',
+      styleScale: 'Scale',
+      styleCycle: 'Cycle',
+      styleCycle2: 'Cycle II',
+      styleKarma: 'Karma',
+      styleHint: 'Ink, Spine, Scale, Cycle, and Karma stay readable when zoomed out. Cycle is ink on paper. Karma is colored thread.',
       idleRefresh: 'Idle interval (seconds)',
       runningRefresh: 'Interval while an Agent is running',
       refreshHint: 'Refresh stops while another panel is open, and runs once when this panel returns. Outputs are saved when a session writes them.',
@@ -358,15 +376,90 @@ loader.load({
 .rd-input{width:100%}
 .rd-body{flex:1;min-height:0;display:flex}
 .rd-viewport{position:relative;flex:1;min-width:0;overflow:hidden;touch-action:none;cursor:grab;background:var(--dsw-alias-bg-base);background-image:radial-gradient(var(--dsw-alias-border-l1) 1px,transparent 1px);background-size:22px 22px}
+.rd-page[data-style=cycle] .rd-viewport,.rd-page[data-style=cycle2] .rd-viewport{background-color:#f6f7f8;background-image:radial-gradient(340px 460px at 0% 100%,rgba(22,24,28,.18),transparent 68%),radial-gradient(300px 380px at 100% 92%,rgba(22,24,28,.14),transparent 70%),radial-gradient(180px 140px at 10% 8%,rgba(22,24,28,.07),transparent 72%),radial-gradient(rgba(44,46,51,.2) 1px,transparent 1px);background-size:auto,auto,auto,26px 26px}
+.rd-page[data-style=karma] .rd-viewport{background-color:#0d1020;background-image:radial-gradient(280px 200px at 8% 12%,rgba(139,116,214,.2),transparent 68%),radial-gradient(320px 220px at 92% 8%,rgba(226,194,122,.16),transparent 64%),radial-gradient(260px 200px at 78% 88%,rgba(77,184,176,.14),transparent 70%),radial-gradient(220px 180px at 16% 84%,rgba(212,83,74,.12),transparent 72%),radial-gradient(rgba(226,194,122,.34) 1px,transparent 1px);background-size:auto,auto,auto,auto,28px 28px}
+.rd-page[data-style=cycle] .rd-edges path,.rd-page[data-style=cycle2] .rd-edges path{stroke:#8b919a}
+.rd-page[data-style=cycle] .rd-edges path.rd-flow,.rd-page[data-style=cycle2] .rd-edges path.rd-flow{stroke:#2c3036}
+.rd-page[data-style=karma] .rd-edges path{stroke:rgba(226,194,122,.62)}
+.rd-page[data-style=karma] .rd-edges path.rd-flow{stroke:#e2c27a}
 .rd-viewport[data-panning=true]{cursor:grabbing}
-.rd-world{position:absolute;left:0;top:0;transform-origin:0 0}
+.rd-world{position:absolute;left:0;top:0;z-index:1;transform-origin:0 0}
+.rd-figures{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.rd-figure{position:absolute;bottom:7%;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:.46}
+.rd-figure.origin{left:3%;width:min(168px,24%)}
+.rd-figure.echo{right:4%;bottom:18%;width:min(112px,16%);opacity:.28}
+.rd-figure span{font-size:11px;letter-spacing:.18em}
+.rd-page[data-style=cycle] .rd-figure,.rd-page[data-style=cycle2] .rd-figure{opacity:1}
+.rd-page[data-style=cycle] .rd-figure.origin,.rd-page[data-style=cycle2] .rd-figure.origin{left:-1%;bottom:0;width:min(300px,34%)}
+.rd-page[data-style=cycle] .rd-figure.echo,.rd-page[data-style=cycle2] .rd-figure.echo{right:-1%;bottom:5%;width:min(230px,26%);opacity:.9}
+.rd-page[data-style=cycle] .rd-figure.echo img,.rd-page[data-style=cycle2] .rd-figure.echo img{transform:scaleX(-1)}
+.rd-page[data-style=cycle] .rd-figure img,.rd-page[data-style=cycle2] .rd-figure img{width:100%;display:block;-webkit-mask-image:linear-gradient(to top,transparent 0%,#000 14%,#000 80%,transparent 100%);mask-image:linear-gradient(to top,transparent 0%,#000 14%,#000 80%,transparent 100%)}
+.rd-page[data-style=cycle] .rd-figure span,.rd-page[data-style=cycle2] .rd-figure span{color:#2c3036}
+.rd-page[data-style=cycle2] .rd-figure.origin{width:min(250px,30%)}
+.rd-page[data-style=cycle2] .rd-figure.echo{width:min(190px,22%)}
+body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-viewport,body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-viewport{background-color:#121418;background-image:radial-gradient(340px 460px at 0% 100%,rgba(232,234,238,.08),transparent 68%),radial-gradient(300px 380px at 100% 92%,rgba(232,234,238,.06),transparent 70%),radial-gradient(180px 140px at 10% 8%,rgba(232,234,238,.05),transparent 72%),radial-gradient(rgba(197,201,208,.22) 1px,transparent 1px)}
+body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-edges path,body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-edges path{stroke:#9aa1ab}
+body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-edges path.rd-flow,body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-edges path.rd-flow{stroke:#e6e8ec}
+body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-card,body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-card{color:#f3f4f6;border-color:#c5c9d0;background:linear-gradient(180deg,#23262c,#16181d)}
+body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-card[data-depth="1"],body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-card[data-depth="1"]{border-top-color:#d5d8de;background:linear-gradient(180deg,#2a2e35,#1a1d22)}
+body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-card[data-depth="4"],body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-card[data-depth="4"],body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-card[data-depth="5"],body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-card[data-depth="5"],body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-card[data-depth="6"],body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-card[data-depth="6"]{background:rgba(22,24,28,.72);border-color:#8b919a}
+body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-kicker,body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-kicker,body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-intent,body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-intent,body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-figure span,body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-figure span{color:#c5c9d0}
+body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-bagua,body[data-ds-dark-theme] .rd-page[data-style=cycle2] .rd-bagua{filter:invert(1);opacity:.34}
+.rd-bagua{position:absolute;left:50%;top:46%;width:min(620px,68%);transform:translate(-50%,-50%);opacity:.42;animation:rd-bagua 32s ease-in-out infinite}
+.rd-wisp{fill:none;stroke:#2c3036;stroke-linecap:round;stroke-dasharray:34 90;animation:rd-wisp 18s linear infinite}
+@keyframes rd-bagua{50%{transform:translate(-47%,-54%) rotate(-2deg)}}
+@keyframes rd-wisp{to{stroke-dashoffset:-248}}
+@media (prefers-reduced-motion:reduce){.rd-bagua,.rd-wisp{animation:none}}
+.rd-page[data-style=karma] .rd-figure{opacity:.72}
+.rd-page[data-style=karma] .rd-figure.echo{opacity:.4}
+.rd-page[data-style=karma] .rd-figure span{color:#e2c27a}
+.rd-hint,.rd-zoom{z-index:3}
 .rd-edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 .rd-flow{fill:none;stroke:var(--dsw-alias-brand-primary);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:1.5 13;animation:rd-flow .85s linear infinite}
 @keyframes rd-flow{to{stroke-dashoffset:-29}}
-.rd-card{position:absolute;width:236px;height:148px;box-sizing:border-box;padding:10px 12px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);cursor:grab;text-align:left;color:inherit;font:inherit;overflow:hidden}
-.rd-card[data-selected=true]{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 1px var(--dsw-alias-brand-primary)}
-.rd-card[data-due=soon]{border-color:var(--dsw-alias-state-warn-primary)}
-.rd-card[data-due=due],.rd-card[data-due=overdue]{border-color:var(--dsw-alias-state-error-primary)}
+.rd-card{position:absolute;box-sizing:border-box;padding:10px 12px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);cursor:grab;text-align:left;color:inherit;font:inherit;overflow:hidden}
+.rd-page[data-style=classic] .rd-card[data-depth="1"]{border-top:2px solid var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-layer-1));box-shadow:0 12px 28px color-mix(in srgb,var(--dsw-alias-bg-base) 62%,transparent)}
+.rd-page[data-style=classic] .rd-card[data-depth="1"] strong{font-size:18px;font-weight:650;letter-spacing:-.015em}
+.rd-page[data-style=classic] .rd-card[data-depth="1"] .rd-intent{-webkit-line-clamp:3}
+.rd-page[data-style=classic] .rd-card[data-depth="2"]{border-color:var(--dsw-alias-border-l2)}
+.rd-page[data-style=classic] .rd-card[data-depth="2"] strong{font-size:15px}
+.rd-page[data-style=classic] .rd-card[data-depth="4"] strong,.rd-page[data-style=classic] .rd-card[data-depth="5"] strong,.rd-page[data-style=classic] .rd-card[data-depth="6"] strong{font-size:13px;font-weight:560}
+.rd-page[data-style=classic] .rd-card[data-depth="4"],.rd-page[data-style=classic] .rd-card[data-depth="5"],.rd-page[data-style=classic] .rd-card[data-depth="6"]{border-color:color-mix(in srgb,var(--dsw-alias-border-l1) 72%,transparent);background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 84%,var(--dsw-alias-bg-base))}
+.rd-page[data-style=classic] .rd-card[data-depth="4"] .rd-intent,.rd-page[data-style=classic] .rd-card[data-depth="5"] .rd-intent,.rd-page[data-style=classic] .rd-card[data-depth="6"] .rd-intent{-webkit-line-clamp:1}
+.rd-page[data-style=ink] .rd-card[data-depth="1"]{background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-layer-1));border-color:var(--dsw-alias-border-l2);box-shadow:0 10px 24px color-mix(in srgb,var(--dsw-alias-bg-base) 58%,transparent)}
+.rd-page[data-style=ink] .rd-card[data-depth="2"]{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 88%,var(--dsw-alias-bg-base))}
+.rd-page[data-style=ink] .rd-card[data-depth="3"]{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 62%,var(--dsw-alias-bg-base))}
+.rd-page[data-style=ink] .rd-card[data-depth="4"],.rd-page[data-style=ink] .rd-card[data-depth="5"],.rd-page[data-style=ink] .rd-card[data-depth="6"]{background:transparent;border-style:dashed;border-color:color-mix(in srgb,var(--dsw-alias-border-l2) 70%,transparent)}
+.rd-page[data-style=spine] .rd-card{padding-left:16px}
+.rd-page[data-style=spine] .rd-card::before{content:"";position:absolute;left:7px;top:12px;bottom:12px;width:1px;border-radius:99px;background:var(--dsw-alias-brand-primary);opacity:.4}
+.rd-page[data-style=spine] .rd-card[data-depth="1"]::before{width:6px;left:5px;top:8px;bottom:8px;opacity:1}
+.rd-page[data-style=spine] .rd-card[data-depth="2"]::before{width:4px;left:6px;opacity:.85}
+.rd-page[data-style=spine] .rd-card[data-depth="3"]::before{width:2px;opacity:.7}
+.rd-pips{display:inline-flex;align-items:flex-end;gap:2px;height:11px;flex:none}
+.rd-pips i{width:3px;border-radius:1px;background:color-mix(in srgb,var(--dsw-alias-label-secondary) 28%,transparent)}
+.rd-pips i:nth-child(1){height:4px}.rd-pips i:nth-child(2){height:6px}.rd-pips i:nth-child(3){height:8px}.rd-pips i:nth-child(4){height:11px}
+.rd-pips i[data-on=true]{background:var(--dsw-alias-label-primary)}
+.rd-page[data-style=scale] .rd-card[data-depth="1"] .rd-pips i[data-on=true]{background:var(--dsw-alias-brand-primary)}
+.rd-mark-art{position:absolute;right:8px;bottom:8px;width:26px;height:26px;pointer-events:none}
+.rd-page[data-style=cycle] .rd-card,.rd-page[data-style=cycle2] .rd-card,.rd-page[data-style=karma] .rd-card{padding-right:18px}
+.rd-page[data-style=cycle] .rd-card,.rd-page[data-style=cycle2] .rd-card{color:#1c1e22;border-color:#2c3036;background:radial-gradient(42px 32px at 100% 0%,rgba(183,188,196,.35),transparent 72%),linear-gradient(180deg,#ffffff,#eef1f4)}
+.rd-page[data-style=cycle] .rd-card[data-depth="1"],.rd-page[data-style=cycle2] .rd-card[data-depth="1"]{border-top:2px solid #c5c9d0;background:radial-gradient(96px 72px at 100% 0%,rgba(197,201,208,.55),transparent 70%),radial-gradient(80px 64px at 0% 100%,rgba(22,24,28,.1),transparent 72%),linear-gradient(180deg,#ffffff,#f4f6f8);box-shadow:0 14px 32px rgba(20,22,26,.16)}
+.rd-page[data-style=cycle] .rd-card[data-depth="2"],.rd-page[data-style=cycle2] .rd-card[data-depth="2"]{background:radial-gradient(64px 48px at 100% 0%,rgba(183,188,196,.32),transparent 72%),linear-gradient(180deg,#fbfbfc,#e8ebef)}
+.rd-page[data-style=cycle] .rd-card[data-depth="3"],.rd-page[data-style=cycle2] .rd-card[data-depth="3"]{background:linear-gradient(180deg,#f7f8fa,#eef0f3)}
+.rd-page[data-style=cycle] .rd-card[data-depth="4"],.rd-page[data-style=cycle2] .rd-card[data-depth="4"],.rd-page[data-style=cycle] .rd-card[data-depth="5"],.rd-page[data-style=cycle2] .rd-card[data-depth="5"],.rd-page[data-style=cycle] .rd-card[data-depth="6"],.rd-page[data-style=cycle2] .rd-card[data-depth="6"]{background:rgba(255,255,255,.72);border-style:dashed;border-color:#b7bcc4}
+.rd-page[data-style=cycle] .rd-kicker,.rd-page[data-style=cycle2] .rd-kicker,.rd-page[data-style=cycle] .rd-intent,.rd-page[data-style=cycle2] .rd-intent{color:#66707a}
+.rd-page[data-style=cycle] .rd-card[data-depth="1"] .rd-mark-art,.rd-page[data-style=cycle2] .rd-card[data-depth="1"] .rd-mark-art{width:48px;height:48px}
+.rd-page[data-style=cycle] .rd-card[data-depth="2"] .rd-mark-art,.rd-page[data-style=cycle2] .rd-card[data-depth="2"] .rd-mark-art{width:36px;height:36px}
+.rd-page[data-style=karma] .rd-card{color:#f7f1e6;border-color:#c6a15a;background:radial-gradient(86px 58px at 100% 0%,rgba(226,194,122,.3),transparent 62%),radial-gradient(72px 52px at 0% 100%,rgba(77,184,176,.18),transparent 64%),linear-gradient(155deg,#1b1733,#12182c 58%,#24162e)}
+.rd-page[data-style=karma] .rd-card[data-depth="1"]{border-width:2px;box-shadow:0 0 0 1px rgba(226,194,122,.38),0 14px 30px rgba(8,6,18,.42);background:radial-gradient(110px 78px at 100% 0%,rgba(226,194,122,.42),transparent 60%),radial-gradient(90px 70px at 0% 100%,rgba(139,116,214,.28),transparent 62%),radial-gradient(70px 48px at 18% 80%,rgba(212,83,74,.2),transparent 70%),linear-gradient(155deg,#221c3d,#14182e 52%,#2a1732)}
+.rd-page[data-style=karma] .rd-card[data-depth="2"]{background:radial-gradient(78px 52px at 100% 0%,rgba(226,194,122,.28),transparent 64%),radial-gradient(64px 46px at 0% 100%,rgba(77,184,176,.16),transparent 66%),linear-gradient(155deg,#1c1834,#14192d)}
+.rd-page[data-style=karma] .rd-card[data-depth="4"],.rd-page[data-style=karma] .rd-card[data-depth="5"],.rd-page[data-style=karma] .rd-card[data-depth="6"]{border-color:rgba(198,161,90,.42);background:linear-gradient(155deg,#171428,#121624)}
+.rd-page[data-style=karma] .rd-kicker,.rd-page[data-style=karma] .rd-intent{color:#d9cbb6}
+.rd-page[data-style=karma] .rd-card[data-depth="1"] .rd-mark-art{width:46px;height:46px}
+.rd-page[data-style=karma] .rd-card[data-depth="2"] .rd-mark-art{width:34px;height:34px}
+.rd-page .rd-card[data-selected=true]{border-color:var(--dsw-alias-brand-primary);border-style:solid;box-shadow:0 0 0 1px var(--dsw-alias-brand-primary)}
+.rd-page .rd-card[data-due=soon]{border-color:var(--dsw-alias-state-warn-primary);border-style:solid}
+.rd-page .rd-card[data-due=due],.rd-page .rd-card[data-due=overdue]{border-color:var(--dsw-alias-state-error-primary);border-style:solid}
 .rd-card-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:4px}
 .rd-kicker{font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--dsw-alias-label-secondary)}
 .rd-card strong{display:block;font-size:14px;line-height:1.35;font-weight:600}
@@ -468,6 +561,17 @@ loader.load({
     function clamp(value: number, min: number, max: number) {
       return Math.min(max, Math.max(min, value))
     }
+    function cardSize(depth: number) {
+      if (depth <= 1) return { w: 280, h: 168 }
+      if (depth === 2) return { w: 252, h: 156 }
+      if (depth >= 4) return { w: 220, h: 132 }
+      return { w: CARD_W, h: CARD_H }
+    }
+    let activeStyle = 'classic'
+    function cardBox(node: { x: number, y: number, depth?: number }) {
+      const size = activeStyle === 'classic' ? cardSize(node.depth ?? 3) : { w: CARD_W, h: CARD_H }
+      return { x: node.x + (CARD_W - size.w) / 2, y: node.y + (CARD_H - size.h) / 2, w: size.w, h: size.h }
+    }
     function depthLabel(translate: (key: string) => string, depth: number) {
       if (depth >= 1 && depth <= 4) return text(translate, `level${depth}`)
       return text(translate, 'levelN', { n: depth })
@@ -563,6 +667,7 @@ loader.load({
       void revision
       const active = snapshot?.active ?? null
       const nodes = active?.nodes ?? []
+      activeStyle = snapshot?.settings.nodeStyle || 'classic'
       const selected = nodes.find((node) => node.id === selectedId) ?? null
       const projectId = active?.project?.id
       const hidden = snapshot?.settings.overviewHidden === true
@@ -779,13 +884,14 @@ loader.load({
         const laid = value.snapshot?.active?.nodes
         if (laid?.length) fit(laid)
       }
-      function fit(list: Array<{ x: number, y: number }> = nodes) {
+      function fit(list: Array<{ x: number, y: number, depth?: number }> = nodes) {
         const port = viewportRef.current
         if (!port || list.length === 0) return
-        const minX = Math.min(...list.map((node) => node.x))
-        const minY = Math.min(...list.map((node) => node.y))
-        const maxX = Math.max(...list.map((node) => node.x + CARD_W))
-        const maxY = Math.max(...list.map((node) => node.y + CARD_H))
+        const boxes = list.map(cardBox)
+        const minX = Math.min(...boxes.map((box) => box.x))
+        const minY = Math.min(...boxes.map((box) => box.y))
+        const maxX = Math.max(...boxes.map((box) => box.x + box.w))
+        const maxY = Math.max(...boxes.map((box) => box.y + box.h))
         const zoom = clamp(Math.min((port.clientWidth - 72) / Math.max(1, maxX - minX), (port.clientHeight - 72) / Math.max(1, maxY - minY), 1), 0.4, 1.8)
         const next = { zoom, panX: (port.clientWidth - (maxX - minX) * zoom) / 2 - minX * zoom, panY: (port.clientHeight - (maxY - minY) * zoom) / 2 - minY * zoom }
         setView(next)
@@ -832,13 +938,13 @@ loader.load({
       }
 
       const recent = snapshot?.recentProjects ?? snapshot?.projects.slice(0, 5) ?? []
-      const world = nodes.reduce((box, node) => ({
-        width: Math.max(box.width, positioned(node).x + 280),
-        height: Math.max(box.height, positioned(node).y + 190),
-      }), { width: 960, height: 640 })
+      const world = nodes.reduce((box, node) => {
+        const card = cardBox(positioned(node))
+        return { width: Math.max(box.width, card.x + card.w + 48), height: Math.max(box.height, card.y + card.h + 48) }
+      }, { width: 960, height: 640 })
       const byId = new Map(nodes.map((node) => [node.id, positioned(node)]))
 
-      return h('div', { className: 'rd-page', ref: pageRef },
+      return h('div', { className: 'rd-page', ref: pageRef, 'data-style': activeStyle },
         h('style', null, CSS),
         h('header', { className: 'rd-header', title: tr('headerGesture') },
           h('span', { className: 'rd-mark', 'aria-hidden': 'true' }, h(PanelIcon, { size: 22 })),
@@ -885,6 +991,7 @@ loader.load({
         }) : null,
         page === 'board' && active ? h('div', { className: 'rd-body' },
           h('div', { className: 'rd-viewport', ref: viewportRef, 'data-panning': panning ? 'true' : 'false', onPointerDown: startPan },
+            activeStyle === 'cycle' || activeStyle === 'cycle2' || activeStyle === 'karma' ? h(CanvasFigures, { styleName: activeStyle }) : null,
             h('div', { className: 'rd-world', style: { width: world.width, height: world.height, transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})` } },
               h('svg', { className: 'rd-edges', width: world.width, height: world.height },
                 nodes.filter((node) => node.parentId && byId.has(node.parentId)).map((node) => {
@@ -984,7 +1091,8 @@ loader.load({
           onTogglePreview: () => setDialog((current: DialogState | null) => current?.type === 'preview' ? { ...current, maximized: !current.maximized } : current),
           idleSeconds: snapshot?.settings.idleRefreshSeconds ?? 30,
           runningSeconds: snapshot?.settings.runningRefreshSeconds ?? 10,
-          onSaveRefresh: async (idleSeconds: number, runningSeconds: number) => { await command('set_refresh', { idleSeconds, runningSeconds }); setDialog(null) },
+          nodeStyle: snapshot?.settings.nodeStyle || 'classic',
+          onSaveRefresh: async (idleSeconds: number, runningSeconds: number, nodeStyle: string) => { await command('set_refresh', { idleSeconds, runningSeconds, nodeStyle }); setDialog(null) },
         }) : null)
     }
 
@@ -992,18 +1100,109 @@ loader.load({
       const { node, selected, tr } = props
       const due = node.rolled?.due?.state || 'none'
       const blocks = node.rolled?.childStatuses?.length ? node.rolled.childStatuses : [node.status]
+      const box = cardBox(node)
       return h('article', {
-        'data-node': node.id, 'data-selected': selected ? 'true' : 'false', 'data-due': due, className: 'rd-card',
-        style: { left: node.x, top: node.y, zIndex: selected ? 2 : 1 },
+        'data-node': node.id, 'data-depth': String(Math.min(6, Math.max(1, node.depth || 1))), 'data-selected': selected ? 'true' : 'false', 'data-due': due, className: 'rd-card',
+        style: { left: box.x, top: box.y, width: box.w, height: box.h, zIndex: selected ? 3 : node.depth <= 1 ? 2 : 1 },
         onPointerDown: props.onPointerDown, onContextMenu: props.onContextMenu, onDoubleClick: props.onDoubleClick,
       },
-        h('div', { className: 'rd-card-top' }, h('span', { className: 'rd-kicker' }, depthLabel(tr, node.depth)), dueText(tr, node) ? h('span', { className: 'rd-due', 'data-due': due }, dueText(tr, node)) : null),
+        h('div', { className: 'rd-card-top' },
+          h('span', { className: 'rd-row', style: { gap: 6 } },
+            h('span', { className: 'rd-kicker' }, depthLabel(tr, node.depth)),
+            activeStyle === 'scale' ? h('span', { className: 'rd-pips', 'aria-hidden': 'true' }, [4, 6, 8, 11].map((height, index) => h('i', { key: height, 'data-on': index < Math.max(1, 5 - (node.depth || 1)) ? 'true' : 'false', style: { height } }))) : null),
+          dueText(tr, node) ? h('span', { className: 'rd-due', 'data-due': due }, dueText(tr, node)) : null),
         h('strong', null, node.title),
         h('p', { className: 'rd-intent' }, node.intent || ' '),
         h('div', { className: 'rd-meta' },
           h('span', { className: 'rd-pill' }, h('i', { className: 'rd-dot', style: { background: COLOR[node.status] } }), tr(`status_${node.status}`)),
           h('span', { className: 'rd-progress' }, node.sessions.length ? `${node.rolled?.label || '0%'} · ${node.sessions.length}` : node.rolled?.label || '0%')),
-        h('div', { className: 'rd-mosaic' }, blocks.map((status, index) => h('span', { key: `${status}-${index}`, style: { flex: 1, background: COLOR[status] || COLOR.backlog } }))))
+        h('div', { className: 'rd-mosaic' }, blocks.map((status, index) => h('span', { key: `${status}-${index}`, style: { flex: 1, background: COLOR[status] || COLOR.backlog } }))),
+        activeStyle === 'cycle' || activeStyle === 'cycle2' || activeStyle === 'karma' ? h(StyleMark, { styleName: activeStyle === 'cycle2' ? 'cycle' : activeStyle, depth: node.depth || 1 }) : null)
+    }
+    function CanvasFigures(props: { styleName: string }) {
+      if (props.styleName === 'cycle' || props.styleName === 'cycle2') {
+        return h('div', { className: 'rd-figures', 'aria-hidden': 'true' },
+          h(CycleBagua),
+          h(Portrait, { src: `${API}/asset/origin`, label: '本尊', echo: false }),
+          h(Portrait, { src: `${API}/asset/echo`, label: '分身', echo: true }))
+      }
+      return h('div', { className: 'rd-figures', 'aria-hidden': 'true' },
+        h('div', { className: 'rd-figure origin' }, h(FigureMark, { stroke: '#e2c27a', fill: 'none', echo: false }), h('span', null, '本尊')),
+        h('div', { className: 'rd-figure echo' }, h(FigureMark, { stroke: '#8b74d6', fill: 'none', echo: true }), h('span', null, '分身')))
+    }
+    function CycleBagua() {
+      const marks = [
+        [198, 54, -6, '110'],
+        [318, 96, 16, '101'],
+        [352, 198, 4, '011'],
+        [312, 304, -14, '001'],
+        [198, 346, 7, '000'],
+        [88, 304, 12, '010'],
+        [52, 188, -8, '100'],
+        [92, 84, 11, '111'],
+      ]
+      return h('svg', { className: 'rd-bagua', viewBox: '0 0 400 400', 'aria-hidden': 'true' },
+        h('defs', null, h('filter', { id: 'rd-wash', x: '-25%', y: '-25%', width: '150%', height: '150%' },
+          h('feTurbulence', { type: 'fractalNoise', baseFrequency: '0.007 0.013', numOctaves: 2, seed: 6, result: 'noise' }),
+          h('feDisplacementMap', { in: 'SourceGraphic', in2: 'noise', scale: 24, xChannelSelector: 'R', yChannelSelector: 'G' }),
+          h('feGaussianBlur', { stdDeviation: 0.45 }))),
+        h('g', { filter: 'url(#rd-wash)' },
+          h('path', { d: 'M74 176C66 92 138 42 214 50c78-8 138 48 134 126 14 78-48 150-136 156C126 346 54 278 62 198', fill: 'none', stroke: '#2c3036', strokeWidth: 2.4, strokeLinecap: 'round' }),
+          h('path', { d: 'M108 96c48-28 132-22 184 28', fill: 'none', stroke: '#8b919a', strokeWidth: 1.3, strokeLinecap: 'round' }),
+          h('path', { d: 'M196 96c66-2 108 48 100 104-8 52-52 90-104 94 18-40 16-74-2-98-22-28-20-62 6-100z', fill: '#2a2e33', opacity: 0.62 }),
+          h('path', { d: 'M204 292c-62 6-112-42-104-102 8-54 54-92 108-94-16 42-14 76 4 98 20 26 18 60-8 98z', fill: '#f7f8fa', opacity: 0.78 }),
+          h('path', { d: 'M168 126c22 8 28 24 18 38M236 262c-20-6-30-24-16-40', fill: 'none', stroke: '#8b919a', strokeWidth: 1.2, strokeLinecap: 'round' }),
+          h('circle', { cx: 188, cy: 146, r: 7, fill: '#f6f7f8' }),
+          h('circle', { cx: 214, cy: 250, r: 7, fill: '#2a2e33' }),
+          marks.map(([x, y, turn, pattern]) => h('g', { key: `${x}-${y}`, transform: `translate(${x} ${y}) rotate(${turn})` },
+            String(pattern).split('').map((bit, line) => h('path', {
+              key: line,
+              d: bit === '0' ? 'M -13 0 h 26' : 'M -13 0 h 9 M 4 0 h 9',
+              transform: `translate(0 ${line * 8 - 8})`,
+              stroke: '#2c3036',
+              strokeWidth: 1.7,
+              strokeLinecap: 'round',
+            }))))),
+        h('path', { className: 'rd-wisp', d: 'M18 214C78 156 132 262 196 188s92-18 132 28 62 8 78-24', strokeWidth: 13, opacity: 0.28 }),
+        h('path', { className: 'rd-wisp', d: 'M36 168c70-46 96 54 156 8 48-36 86 12 132-18', stroke: '#8b919a', strokeWidth: 7, opacity: 0.45, style: { animationDuration: '24s', animationDelay: '-8s' } }),
+        h('path', { className: 'rd-wisp', d: 'M48 250c62 36 108-48 168-6 42 30 74-8 118 16', strokeWidth: 9, opacity: 0.22, style: { animationDuration: '21s', animationDelay: '-4s' } }))
+    }
+    function Portrait(props: { src: string, label: string, echo: boolean }) {
+      const [failed, setFailed] = React.useState(false)
+      return h('div', { className: props.echo ? 'rd-figure echo' : 'rd-figure origin' },
+        failed
+          ? h(FigureMark, { stroke: '#1c1e22', fill: 'rgba(28,30,34,.55)', echo: props.echo })
+          : h('img', { src: props.src, alt: '', draggable: false, onError: () => setFailed(true) }),
+        h('span', null, props.label))
+    }
+    function FigureMark(props: { stroke: string, fill: string, echo: boolean }) {
+      return h('svg', { viewBox: '0 0 120 220', width: '100%', height: 'auto' },
+        h('path', { d: 'M60 18c10 0 16 8 16 16s-6 15-16 15-16-7-16-15 6-16 16-16z', fill: props.fill, stroke: props.stroke, strokeWidth: props.echo ? 1.4 : 2 }),
+        h('path', { d: 'M42 30c-8 8-14 4-16-2M78 30c8 8 14 4 16-2', fill: 'none', stroke: props.stroke, strokeWidth: props.echo ? 1.2 : 1.8, strokeLinecap: 'round' }),
+        h('path', { d: 'M60 49c16 8 24 22 24 40v18c8 6 16 20 18 36H18c2-16 10-30 18-36V89c0-18 8-32 24-40z', fill: props.fill, stroke: props.stroke, strokeWidth: props.echo ? 1.4 : 2, strokeLinejoin: 'round' }),
+        h('path', { d: 'M36 112c-14 8-20 24-22 42M84 112c14 8 20 24 22 42', fill: 'none', stroke: props.stroke, strokeWidth: props.echo ? 1.2 : 1.8, strokeLinecap: 'round' }),
+        props.echo ? h('path', { d: 'M28 78c18 10 46 10 64 0', fill: 'none', stroke: props.stroke, strokeWidth: 1, opacity: 0.7 }) : null)
+    }
+    function StyleMark(props: { styleName: string, depth: number }) {
+      const depth = Math.min(6, Math.max(1, props.depth))
+      if (props.styleName === 'cycle') {
+        return h('svg', { className: 'rd-mark-art', viewBox: '0 0 64 64', 'aria-hidden': 'true' },
+          h('circle', { cx: 30, cy: 34, r: 18, fill: 'none', stroke: '#1c1915', strokeWidth: depth <= 1 ? 2.4 : 1.3, opacity: depth >= 4 ? 0.4 : 0.82 }),
+          depth <= 2 ? h('path', { d: 'M30 16a18 18 0 0 1 0 36 9 9 0 0 1 0-18 9 9 0 0 0 0-18z', fill: '#1c1915', opacity: depth <= 1 ? 0.88 : 0.5 }) : null,
+          depth <= 1 ? h('circle', { cx: 30, cy: 25, r: 1.8, fill: '#f6f0e4' }) : null,
+          depth <= 1 ? h('circle', { cx: 30, cy: 43, r: 1.8, fill: '#f6f0e4' }) : null,
+          depth <= 1 ? h('circle', { cx: 50, cy: 14, r: 7, fill: 'none', stroke: '#8b919a', strokeWidth: 1.5 }) : null,
+          depth <= 1 ? h('circle', { cx: 50, cy: 14, r: 2.2, fill: '#2c3036' }) : null)
+      }
+      const threads = [
+        ['M32 8c10 4 18 12 20 22', '#e2c27a'],
+        ['M52 34c-2 12-12 20-24 22', '#d4534a'],
+        ['M24 56C12 52 6 40 8 28', '#4db8b0'],
+        ['M12 24C16 12 26 6 38 8', '#8b74d6'],
+      ].slice(0, Math.max(1, 5 - depth))
+      return h('svg', { className: 'rd-mark-art', viewBox: '0 0 64 64', 'aria-hidden': 'true' },
+        threads.map(([d, stroke]) => h('path', { key: stroke, d, fill: 'none', stroke, strokeWidth: depth <= 1 ? 2.4 : 1.7, strokeLinecap: 'round' })),
+        h('circle', { cx: 32, cy: 32, r: depth <= 1 ? 3.2 : 2.2, fill: '#f3e2b0' }))
     }
 
     function Aside(props: AsideProps) {
@@ -1069,16 +1268,19 @@ loader.load({
       return node.sessions.some((link) => link.running)
     }
     function sideToward(from: NodeView, to: NodeView) {
-      const dx = (to.x + CARD_W / 2) - (from.x + CARD_W / 2)
-      const dy = (to.y + CARD_H / 2) - (from.y + CARD_H / 2)
-      if (Math.abs(dx) * CARD_H >= Math.abs(dy) * CARD_W) return dx >= 0 ? 'right' : 'left'
+      const a = cardBox(from)
+      const b = cardBox(to)
+      const dx = (b.x + b.w / 2) - (a.x + a.w / 2)
+      const dy = (b.y + b.h / 2) - (a.y + a.h / 2)
+      if (Math.abs(dx) * a.h >= Math.abs(dy) * a.w) return dx >= 0 ? 'right' : 'left'
       return dy >= 0 ? 'bottom' : 'top'
     }
     function port(node: NodeView, side: string) {
-      if (side === 'left') return { x: node.x, y: node.y + CARD_H / 2, nx: -1, ny: 0 }
-      if (side === 'right') return { x: node.x + CARD_W, y: node.y + CARD_H / 2, nx: 1, ny: 0 }
-      if (side === 'top') return { x: node.x + CARD_W / 2, y: node.y, nx: 0, ny: -1 }
-      return { x: node.x + CARD_W / 2, y: node.y + CARD_H, nx: 0, ny: 1 }
+      const box = cardBox(node)
+      if (side === 'left') return { x: box.x, y: box.y + box.h / 2, nx: -1, ny: 0 }
+      if (side === 'right') return { x: box.x + box.w, y: box.y + box.h / 2, nx: 1, ny: 0 }
+      if (side === 'top') return { x: box.x + box.w / 2, y: box.y, nx: 0, ny: -1 }
+      return { x: box.x + box.w / 2, y: box.y + box.h, nx: 0, ny: 1 }
     }
     function edgePath(parent: NodeView, child: NodeView) {
       const start = port(parent, sideToward(parent, child))
@@ -1187,7 +1389,7 @@ loader.load({
       if (dialog.type === 'confirm-unlink') return h(ConfirmDialog, { tr, title: tr('unlink'), body: tr('confirmUnlink'), busy: props.busy, onClose, onConfirm: () => props.onUnlink(dialog.nodeId || '', dialog.linkId || '') })
       if (dialog.type === 'agent') return h(AgentDialog, { tr, sessions: props.sessions, groups: props.groups, busy: props.busy, onClose, onDispatch: (body: Record<string, unknown>) => props.onDispatch({ nodeId: dialog.nodeId, ...body }) })
       if (dialog.type === 'preview') return h(PreviewDialog, { tr, dialog, onClose, onToggle: () => props.onTogglePreview?.() })
-      if (dialog.type === 'settings') return h(SettingsDialog, { tr, idle: props.idleSeconds ?? 30, running: props.runningSeconds ?? 10, busy: props.busy, onClose, onSave: (idleSeconds: number, runningSeconds: number) => props.onSaveRefresh?.(idleSeconds, runningSeconds) })
+      if (dialog.type === 'settings') return h(SettingsDialog, { tr, idle: props.idleSeconds ?? 30, running: props.runningSeconds ?? 10, nodeStyle: props.nodeStyle || 'classic', busy: props.busy, onClose, onSave: (idleSeconds: number, runningSeconds: number, nodeStyle: string) => props.onSaveRefresh?.(idleSeconds, runningSeconds, nodeStyle) })
       return null
     }
     function FormDialog(props: { tr: Translate, title: string, fields: string[][], onClose: () => void, onSubmit: (fields: Record<string, string>) => Promise<unknown>, busy: boolean, extra?: unknown, submitLabel?: string }) {
@@ -1241,15 +1443,19 @@ loader.load({
             h('button', { className: 'rd-button', type: 'button', disabled: busy, onClick: () => props.onDispatch({ create: true, workspaceId, label: chosen?.title || '' }) }, tr('dispatchNew')),
             h('button', { className: 'rd-button', type: 'button', onClick: props.onClose }, tr('cancel')))))
     }
-    function SettingsDialog(props: { tr: Translate, idle: number, running: number, busy: boolean, onClose: () => void, onSave: (idleSeconds: number, runningSeconds: number) => Promise<void> | void }) {
+    function SettingsDialog(props: { tr: Translate, idle: number, running: number, nodeStyle: string, busy: boolean, onClose: () => void, onSave: (idleSeconds: number, runningSeconds: number, nodeStyle: string) => Promise<void> | void }) {
       const [idle, setIdle] = React.useState(String(props.idle))
       const [running, setRunning] = React.useState(String(props.running))
+      const [nodeStyle, setNodeStyle] = React.useState(props.nodeStyle)
       return h(Shell, { tr: props.tr, title: props.tr('settings'), onClose: props.onClose },
+        h('label', { className: 'rd-field' }, props.tr('nodeStyle'), h('select', { className: 'rd-select', style: { maxWidth: '100%' }, value: nodeStyle, onChange: (event: Event) => setNodeStyle((event.target as HTMLSelectElement).value) },
+          ['classic', 'ink', 'spine', 'scale', 'cycle', 'cycle2', 'karma'].map((style) => h('option', { key: style, value: style }, props.tr(`style${style[0]?.toUpperCase()}${style.slice(1)}`))))),
+        h('p', { className: 'rd-muted' }, props.tr('styleHint')),
         h('p', { className: 'rd-muted' }, props.tr('refreshHint')),
         h('label', { className: 'rd-field' }, props.tr('idleRefresh'), h('input', { className: 'rd-input', type: 'number', min: 5, max: 300, value: idle, onChange: (event: Event) => setIdle((event.target as HTMLInputElement).value) })),
         h('label', { className: 'rd-field' }, props.tr('runningRefresh'), h('input', { className: 'rd-input', type: 'number', min: 5, max: 300, value: running, onChange: (event: Event) => setRunning((event.target as HTMLInputElement).value) })),
         h('div', { className: 'rd-actions' },
-          h('button', { className: 'rd-button primary', type: 'button', disabled: props.busy, onClick: () => { void props.onSave(Number(idle), Number(running)) } }, props.tr('save')),
+          h('button', { className: 'rd-button primary', type: 'button', disabled: props.busy, onClick: () => { void props.onSave(Number(idle), Number(running), nodeStyle) } }, props.tr('save')),
           h('button', { className: 'rd-button', type: 'button', onClick: props.onClose }, props.tr('cancel'))))
     }
     function PreviewDialog(props: { tr: Translate, dialog: DialogState, onClose: () => void, onToggle: () => void }) {
@@ -1354,7 +1560,7 @@ interface NodeView {
 }
 interface ProjectRow { id: string, title: string, progress?: number, progressLabel: string, updatedAt: string }
 interface Snapshot {
-  settings: { overviewHidden: boolean, activeProjectId: string | null, idleRefreshSeconds?: number, runningRefreshSeconds?: number }
+  settings: { overviewHidden: boolean, activeProjectId: string | null, idleRefreshSeconds?: number, runningRefreshSeconds?: number, nodeStyle?: string }
   projects: ProjectRow[]
   recentProjects?: ProjectRow[]
   active: {
@@ -1407,5 +1613,6 @@ interface DialogProps {
   onTogglePreview?: () => void
   idleSeconds?: number
   runningSeconds?: number
-  onSaveRefresh?: (idleSeconds: number, runningSeconds: number) => Promise<void>
+  nodeStyle?: string
+  onSaveRefresh?: (idleSeconds: number, runningSeconds: number, nodeStyle: string) => Promise<void>
 }

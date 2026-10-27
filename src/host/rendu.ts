@@ -3,6 +3,9 @@
  * Graph state lives in SQLite, not in the browser.
  */
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { brief, emptyState, normalizeState, reduce, snapshot, type AtlasState } from './model.js'
 import { associateProduced, importSessionHistory, producedFromText, producedFromToolCall, readStoredOutput, rememberOutput, storedOutputs, type FoundOutput } from './outputs.js'
 import { RenduStore } from './store.js'
@@ -142,7 +145,7 @@ interface IncomingRequest extends AsyncIterable<Uint8Array | string> {
 
 interface ServerResponse {
   writeHead(status: number, headers: Record<string, string | number>): void
-  end(body?: string): void
+  end(body?: string | Uint8Array): void
 }
 
 interface SessionSummary {
@@ -290,6 +293,7 @@ function toolDefinition(service: RenduService) {
         path: { type: 'string', description: '产出位置。add_output 时必填。可以是本地 HTML、Markdown、CSV 路径，或一个 http(s) HTML 地址。关联、文件名和创建时间会写入任督的数据库。' },
         idleSeconds: { type: 'integer', description: '面板空闲时的刷新间隔，秒。set_refresh 时使用，5 到 300，默认 30。' },
         runningSeconds: { type: 'integer', description: '有 Agent 运行时的刷新间隔，秒。set_refresh 时使用，5 到 300，默认 10。' },
+        nodeStyle: { type: 'string', enum: ['classic', 'ink', 'spine', 'scale', 'cycle', 'cycle2', 'karma'], description: '节点样式。classic 经典，ink 墨阶，spine 脊线，scale 刻度，cycle 轮回，cycle2 轮回二，karma 因果。默认 classic。' },
       },
     },
     output: {
@@ -358,6 +362,7 @@ async function handle(ctx: RenduContext, service: RenduService, req: IncomingReq
   const action = url.pathname.slice(ROUTE_PREFIX.length).replace(/^\/+|\/+$/g, '')
   const method = String(req.method ?? 'GET').toUpperCase()
   try {
+    if (method === 'GET' && action.startsWith('asset/')) return sendFigure(res, action.slice('asset/'.length))
     if (method === 'GET' && (action === '' || action === 'state')) return sendJson(res, 200, await service.snapshot())
     if (method === 'GET' && action === 'sessions') return sendJson(res, 200, { sessions: await listSessions(ctx) })
     if (method === 'GET' && action === 'workspaces') return sendJson(res, 200, { workspaces: listWorkspaces(ctx) })
@@ -570,6 +575,27 @@ async function readJson(req: IncomingRequest): Promise<unknown> {
   } catch {
     throw new Error('请求不是有效的 JSON')
   }
+}
+
+const FIGURES: Record<string, string[]> = {
+  origin: ['origin.png', 'origin.jpg'],
+  echo: ['echo.png', 'echo.jpg'],
+}
+
+function sendFigure(res: ServerResponse, name: string): void {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets')
+  for (const file of FIGURES[name] ?? []) {
+    try {
+      const body = readFileSync(join(root, file))
+      const type = file.endsWith('.png') ? 'image/png' : 'image/jpeg'
+      res.writeHead(200, { 'content-type': type, 'cache-control': 'public, max-age=3600', 'content-length': body.length })
+      res.end(body)
+      return
+    } catch {
+      // Try the next candidate.
+    }
+  }
+  sendJson(res, 404, { error: '没有这张图' })
 }
 
 function sendJson(res: ServerResponse, status: number, value: unknown): void {
