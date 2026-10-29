@@ -10,7 +10,7 @@ import { brief, emptyState, normalizeState, reduce, snapshot, type AtlasState } 
 import { associateProduced, importSessionHistory, producedFromText, producedFromToolCall, readStoredOutput, rememberOutput, storedOutputs, type FoundOutput } from './outputs.js'
 import { RenduStore } from './store.js'
 
-export const inject = ['webServer', 'tools', 'systemPrompt', 'sessionController']
+export const inject = ['webServer', 'tools', 'systemPrompt', 'sessionController', 'llm']
 export const ROUTE_PREFIX = '/api/rendu'
 
 const PROMPT = [
@@ -134,6 +134,12 @@ interface RenduContext {
     inspect?(sessionId: string, signal?: AbortSignal): Promise<{ meta?: { cwd?: string }, events?: unknown[] }>
     follow?(request: { address: { kind: 'session', sessionId: string }, maxMessages?: number }, signal: AbortSignal): AsyncIterable<{ type?: string, header?: { cwd?: string }, records?: Array<{ event?: unknown }>, cursor?: number, hasMore?: boolean }>
     page?(request: { address: { kind: 'session', sessionId: string }, throughSeq: number, beforeSeq?: number, maxMessages?: number }, signal: AbortSignal): Promise<{ records?: Array<{ event?: unknown }>, hasMore?: boolean }>
+    selectModel(request: { sessionId: string, provider: string, model: string, reasoningEffort?: string }): Promise<unknown>
+  }
+  llm: {
+    listProviders(): Array<{ id: string, name: string }>
+    listModels(provider: string): Promise<Array<{ id: string, name: string }>>
+    resolveModelInfo(provider: string, model: string, signal?: AbortSignal): Promise<{ reasoning?: { efforts?: Array<{ id: string, name: string }>, defaultEffort?: string } }>
   }
   logger?: { warn?: (message: string) => void }
 }
@@ -366,6 +372,7 @@ async function handle(ctx: RenduContext, service: RenduService, req: IncomingReq
     if (method === 'GET' && (action === '' || action === 'state')) return sendJson(res, 200, await service.snapshot())
     if (method === 'GET' && action === 'sessions') return sendJson(res, 200, { sessions: await listSessions(ctx) })
     if (method === 'GET' && action === 'workspaces') return sendJson(res, 200, { workspaces: listWorkspaces(ctx) })
+    if (method === 'GET' && action === 'models') return sendJson(res, 200, await modelCatalog(ctx))
     if (method === 'GET' && action === 'outputs') {
       return sendJson(res, 200, { outputs: await service.outputs(url.searchParams.get('nodeId') ?? '') })
     }
@@ -409,6 +416,22 @@ async function dispatchNode(ctx: RenduContext, service: RenduService, body: Reco
     sessionId = created.sessionId
     label = label || created.label
   }
+  const provider = typeof body.provider === 'string' ? body.provider.trim() : ''
+  const model = typeof body.model === 'string' ? body.model.trim() : ''
+  const reasoningEffort = typeof body.reasoningEffort === 'string' ? body.reasoningEffort.trim() : ''
+  let modelWarning = ''
+  if (provider && model) {
+    try {
+      await ctx.sessionController.selectModel({
+        sessionId,
+        provider,
+        model,
+        ...(reasoningEffort ? { reasoningEffort } : {}),
+      })
+    } catch (error) {
+      modelWarning = `模型没换成：${error instanceof Error ? error.message : String(error)}`
+    }
+  }
   const title = node?.title || '节点'
   const prompt = [
     `你被指定执行任督二脉节点「${title}」。`,
@@ -433,12 +456,63 @@ async function dispatchNode(ctx: RenduContext, service: RenduService, body: Reco
     }
     const saved = await service.mutate({ action: 'link_session', nodeId, sessionId, label, error: '' })
     void service.importLinkedSession(sessionId)
-    return { ...saved, result: { ...saved.result, accepted: true } }
+    return {
+      ...saved,
+      result: {
+        ...saved.result,
+        accepted: true,
+        model: provider && model ? `${provider}/${model}` : '',
+        reasoningEffort,
+        warning: modelWarning || null,
+      },
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     await service.mutate({ action: 'link_session', nodeId, sessionId, label, error: message }).catch(() => {})
     throw new Error(message)
   }
+}
+
+interface ModelChoice {
+  provider: string
+  providerName: string
+  id: string
+  name: string
+  reasoning: Array<{ id: string, name: string }>
+  defaultEffort: string
+}
+
+let catalogCache: { at: number, providers: Array<{ id: string, name: string }>, models: ModelChoice[] } | null = null
+
+async function modelCatalog(ctx: RenduContext): Promise<{ providers: Array<{ id: string, name: string }>, models: ModelChoice[] }> {
+  if (catalogCache && Date.now() - catalogCache.at < 300_000) return { providers: catalogCache.providers, models: catalogCache.models }
+  const providers = ctx.llm.listProviders().map((item) => ({ id: String(item.id), name: String(item.name || item.id) }))
+  const models: ModelChoice[] = []
+  for (const provider of providers) {
+    let list: Array<{ id: string, name: string }> = []
+    try {
+      list = await ctx.llm.listModels(provider.id)
+    } catch {
+      continue
+    }
+    const resolved = await Promise.all(list.map(async (model): Promise<ModelChoice | null> => {
+      const id = String(model?.id ?? '')
+      if (!id) return null
+      let reasoning: Array<{ id: string, name: string }> = []
+      let defaultEffort = ''
+      try {
+        const info = await ctx.llm.resolveModelInfo(provider.id, id)
+        reasoning = (info.reasoning?.efforts ?? []).map((effort) => ({ id: String(effort.id), name: String(effort.name || effort.id) }))
+        defaultEffort = info.reasoning?.defaultEffort ? String(info.reasoning.defaultEffort) : ''
+      } catch {
+        // A route without reasoning metadata still appears in the picker.
+      }
+      return { provider: provider.id, providerName: provider.name, id, name: String(model.name || id), reasoning, defaultEffort }
+    }))
+    for (const item of resolved) if (item) models.push(item)
+  }
+  catalogCache = { at: Date.now(), providers, models }
+  return { providers, models }
 }
 
 function listWorkspaces(ctx: RenduContext) {

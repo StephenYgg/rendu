@@ -88,6 +88,10 @@ loader.load({
       sessionBlank: '空白',
       dispatched: '已交给会话，关联已保留。',
       agentHint: 'Agent 会收到核心宗旨、上级要求、兄弟分支，以及这个节点已经关联的会话。',
+      modelField: '模型',
+      reasoningField: '思考强度',
+      reasoningDefault: '跟随模型默认',
+      noModels: '没有读到可用模型，这次会用它原来的模型。',
       zoomIn: '放大',
       zoomOut: '缩小',
       fit: '适配',
@@ -242,6 +246,10 @@ loader.load({
       sessionBlank: 'blank',
       dispatched: 'Handed off. The conversation stays linked.',
       agentHint: 'The Agent receives the vision, the chain, the sibling branches, and sessions already linked to this node.',
+      modelField: 'Model',
+      reasoningField: 'Thinking effort',
+      reasoningDefault: 'Use the model default',
+      noModels: 'No model list was available, so this keeps the existing model.',
       zoomIn: 'Zoom in',
       zoomOut: 'Zoom out',
       fit: 'Fit',
@@ -593,7 +601,7 @@ body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-bagua,body[data-ds-dark-
       let value: { error?: string } | null = null
       try { value = raw ? JSON.parse(raw) as { error?: string } : null } catch { value = { error: raw } }
       if (!response.ok) throw new Error(value?.error || `HTTP ${response.status}`)
-      return value as Snapshot & { sessions?: SessionRow[], workspaces?: GroupRow[], snapshot?: Snapshot, result?: { rootId?: string, nodeId?: string, warning?: string } }
+      return value as Snapshot & { sessions?: SessionRow[], workspaces?: GroupRow[], models?: ModelChoice[], providers?: Array<{ id: string, name: string }>, snapshot?: Snapshot, result?: { rootId?: string, nodeId?: string, warning?: string, model?: string, reasoningEffort?: string } }
     }
     function GlassIcon(props: { plus: boolean }) {
       return h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true' },
@@ -649,6 +657,7 @@ body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-bagua,body[data-ds-dark-
       const [dialog, setDialog] = React.useState<DialogState | null>(null)
       const [sessions, setSessions] = React.useState<SessionRow[]>([])
       const [groups, setGroups] = React.useState<GroupRow[]>([])
+      const [models, setModels] = React.useState<ModelChoice[]>([])
       const [page, setPage] = React.useState<'board' | 'manage'>('board')
       const [view, setView] = React.useState({ panX: 48, panY: 36, zoom: 1 })
       const [draft, setDraft] = React.useState<{ id: string, x: number, y: number } | null>(null)
@@ -913,11 +922,13 @@ body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-bagua,body[data-ds-dark-
       async function openAgent(nodeId: string) {
         setMenu(null)
         setDialog({ type: 'agent', nodeId })
-        const [sessionResult, groupResult] = await Promise.allSettled([api('sessions', 'GET'), api('workspaces', 'GET')])
+        const [sessionResult, groupResult, modelResult] = await Promise.allSettled([api('sessions', 'GET'), api('workspaces', 'GET'), api('models', 'GET')])
         if (sessionResult.status === 'fulfilled') setSessions(sessionResult.value.sessions ?? [])
         else setError(sessionResult.reason instanceof Error ? sessionResult.reason.message : String(sessionResult.reason))
         if (groupResult.status === 'fulfilled') setGroups(groupResult.value.workspaces ?? [])
         else setError(groupResult.reason instanceof Error ? groupResult.reason.message : String(groupResult.reason))
+        if (modelResult.status === 'fulfilled') setModels(modelResult.value.models ?? [])
+        else setModels([])
       }
       async function dispatch(body: Record<string, unknown>) {
         setBusy(true)
@@ -927,7 +938,7 @@ body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-bagua,body[data-ds-dark-
           epoch.current += 1
           if (value.snapshot) setSnapshot(value.snapshot)
           setError('')
-          setNotice(tr('dispatched'))
+          setNotice(value.result?.warning ? String(value.result.warning) : tr('dispatched'))
           setDialog(null)
         } catch (err) {
           setError(err instanceof Error ? err.message : String(err))
@@ -1069,7 +1080,7 @@ body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-bagua,body[data-ds-dark-
             if (action.startsWith('status:')) void command('set_status', { nodeId: node.id, status: action.slice(7) }).catch(() => {})
           } })) : null,
         dialog ? h(Dialogs, {
-          tr, dialog, nodes, sessions, groups, busy, onClose: () => setDialog(null),
+          tr, dialog, nodes, sessions, groups, models, busy, onClose: () => setDialog(null),
           onCreateProject: async (fields: Record<string, string>) => {
             const value = await command('create_project', { ...fields, activate: true })
             setSelectedId(value.result?.rootId ?? null)
@@ -1387,7 +1398,7 @@ body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-bagua,body[data-ds-dark-
       if (dialog.type === 'confirm-node') return h(ConfirmDialog, { tr, title: tr('confirmDelete'), body: tr('cascadeHint'), busy: props.busy, onClose, onConfirm: () => props.onDeleteNode(dialog.nodeId || '') })
       if (dialog.type === 'confirm-project') return h(ConfirmDialog, { tr, title: tr('confirmDeleteProject'), body: tr('cascadeHint'), busy: props.busy, onClose, onConfirm: () => props.onDeleteProject(dialog.projectId) })
       if (dialog.type === 'confirm-unlink') return h(ConfirmDialog, { tr, title: tr('unlink'), body: tr('confirmUnlink'), busy: props.busy, onClose, onConfirm: () => props.onUnlink(dialog.nodeId || '', dialog.linkId || '') })
-      if (dialog.type === 'agent') return h(AgentDialog, { tr, sessions: props.sessions, groups: props.groups, busy: props.busy, onClose, onDispatch: (body: Record<string, unknown>) => props.onDispatch({ nodeId: dialog.nodeId, ...body }) })
+      if (dialog.type === 'agent') return h(AgentDialog, { tr, sessions: props.sessions, groups: props.groups, models: props.models, busy: props.busy, onClose, onDispatch: (body: Record<string, unknown>) => props.onDispatch({ nodeId: dialog.nodeId, ...body }) })
       if (dialog.type === 'preview') return h(PreviewDialog, { tr, dialog, onClose, onToggle: () => props.onTogglePreview?.() })
       if (dialog.type === 'settings') return h(SettingsDialog, { tr, idle: props.idleSeconds ?? 30, running: props.runningSeconds ?? 10, nodeStyle: props.nodeStyle || 'classic', busy: props.busy, onClose, onSave: (idleSeconds: number, runningSeconds: number, nodeStyle: string) => props.onSaveRefresh?.(idleSeconds, runningSeconds, nodeStyle) })
       return null
@@ -1421,18 +1432,44 @@ body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-bagua,body[data-ds-dark-
           h('button', { className: 'rd-button danger', type: 'button', disabled: props.busy, onClick: () => { void props.onConfirm().catch(() => {}) } }, props.tr('delete')),
           h('button', { className: 'rd-button', type: 'button', onClick: props.onClose }, props.tr('cancel'))))
     }
-    function AgentDialog(props: { tr: Translate, sessions: SessionRow[], groups: GroupRow[], busy: boolean, onClose: () => void, onDispatch: (body: Record<string, unknown>) => void }) {
-      const { tr, sessions, groups, busy } = props
+    function AgentDialog(props: { tr: Translate, sessions: SessionRow[], groups: GroupRow[], models: ModelChoice[], busy: boolean, onClose: () => void, onDispatch: (body: Record<string, unknown>) => void }) {
+      const { tr, sessions, groups, models, busy } = props
       const [sessionId, setSessionId] = React.useState(sessions[0]?.sessionId || '')
       const [workspaceId, setWorkspaceId] = React.useState('')
+      const [modelKey, setModelKey] = React.useState(models[0] ? `${models[0].provider}/${models[0].id}` : '')
+      const [effort, setEffort] = React.useState(models[0]?.defaultEffort || '')
       React.useEffect(() => { if (!sessionId && sessions[0]) setSessionId(sessions[0].sessionId) }, [sessions, sessionId])
+      React.useEffect(() => {
+        if (modelKey || models.length === 0) return
+        setModelKey(`${models[0]?.provider}/${models[0]?.id}`)
+        setEffort(models[0]?.defaultEffort || '')
+      }, [models, modelKey])
       const chosen = groups.find((group) => group.id === workspaceId)
+      const current = models.find((item) => `${item.provider}/${item.id}` === modelKey) || null
+      const selection = current
+        ? { provider: current.provider, model: current.id, ...(effort ? { reasoningEffort: effort } : {}) }
+        : {}
       return h(Shell, { tr, title: tr('agentTitle'), onClose: props.onClose },
         h('p', { className: 'rd-muted' }, tr('agentHint')),
+        models.length ? h('label', { className: 'rd-field' }, tr('modelField'),
+          h('select', {
+            className: 'rd-select',
+            style: { maxWidth: '100%' },
+            value: modelKey,
+            onChange: (event: Event) => {
+              const next = (event.target as HTMLSelectElement).value
+              setModelKey(next)
+              setEffort(models.find((item) => `${item.provider}/${item.id}` === next)?.defaultEffort || '')
+            },
+          }, models.map((item) => h('option', { key: `${item.provider}/${item.id}`, value: `${item.provider}/${item.id}` }, `${item.name} · ${item.providerName}`)))) : h('p', { className: 'rd-muted' }, tr('noModels')),
+        current && current.reasoning.length ? h('label', { className: 'rd-field' }, tr('reasoningField'),
+          h('select', { className: 'rd-select', style: { maxWidth: '100%' }, value: effort, onChange: (event: Event) => setEffort((event.target as HTMLSelectElement).value) },
+            h('option', { value: '' }, tr('reasoningDefault')),
+            current.reasoning.map((item) => h('option', { key: item.id, value: item.id }, item.name)))) : null,
         sessions.length ? h('label', { className: 'rd-field' }, tr('pickSession'),
           h('select', { className: 'rd-select', style: { maxWidth: '100%' }, value: sessionId, onChange: (event: Event) => setSessionId((event.target as HTMLSelectElement).value) },
             sessions.map((session) => h('option', { key: session.sessionId, value: session.sessionId }, session.title)))) : h('p', { className: 'rd-muted' }, tr('noSessions')),
-        h('div', { className: 'rd-actions' }, h('button', { className: 'rd-button primary', type: 'button', disabled: busy || !sessionId, onClick: () => props.onDispatch({ sessionId, label: sessions.find((item) => item.sessionId === sessionId)?.title || '' }) }, tr('dispatchExisting'))),
+        h('div', { className: 'rd-actions' }, h('button', { className: 'rd-button primary', type: 'button', disabled: busy || !sessionId, onClick: () => props.onDispatch({ sessionId, label: sessions.find((item) => item.sessionId === sessionId)?.title || '', ...selection }) }, tr('dispatchExisting'))),
         h('div', { className: 'rd-section' },
           h('label', { className: 'rd-field' }, tr('groupField'),
             h('select', { className: 'rd-select', style: { maxWidth: '100%' }, value: workspaceId, onChange: (event: Event) => setWorkspaceId((event.target as HTMLSelectElement).value) },
@@ -1440,7 +1477,7 @@ body[data-ds-dark-theme] .rd-page[data-style=cycle] .rd-bagua,body[data-ds-dark-
               groups.map((group) => h('option', { key: group.id, value: group.id }, group.title)))),
           h('p', { className: 'rd-muted' }, chosen?.path || tr('groupHint')),
           h('div', { className: 'rd-actions' },
-            h('button', { className: 'rd-button', type: 'button', disabled: busy, onClick: () => props.onDispatch({ create: true, workspaceId, label: chosen?.title || '' }) }, tr('dispatchNew')),
+            h('button', { className: 'rd-button', type: 'button', disabled: busy, onClick: () => props.onDispatch({ create: true, workspaceId, label: chosen?.title || '', ...selection }) }, tr('dispatchNew')),
             h('button', { className: 'rd-button', type: 'button', onClick: props.onClose }, tr('cancel')))))
     }
     function SettingsDialog(props: { tr: Translate, idle: number, running: number, nodeStyle: string, busy: boolean, onClose: () => void, onSave: (idleSeconds: number, runningSeconds: number, nodeStyle: string) => Promise<void> | void }) {
@@ -1571,6 +1608,7 @@ interface Snapshot {
 }
 interface SessionRow { sessionId: string, title: string }
 interface GroupRow { id: string, title: string, path: string }
+interface ModelChoice { provider: string, providerName: string, id: string, name: string, reasoning: Array<{ id: string, name: string }>, defaultEffort: string }
 interface OutputDoc { id?: string, path: string, title: string, filename?: string, kind: string, location?: string, createdAt?: string }
 interface DialogState { type: string, nodeId?: string, parentId?: string, side?: 'left' | 'right', dueAt?: string, projectId?: string, title?: string, linkId?: string, kind?: string, text?: string, url?: string, truncated?: boolean, maximized?: boolean }
 interface AsideProps {
@@ -1600,6 +1638,7 @@ interface DialogProps {
   nodes: NodeView[]
   sessions: SessionRow[]
   groups: GroupRow[]
+  models: ModelChoice[]
   busy: boolean
   onClose: () => void
   onCreateProject: (fields: Record<string, string>) => Promise<void>
